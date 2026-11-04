@@ -82,15 +82,23 @@ CI 见 `.github/workflows/build.yml`（推 tag 或手动触发，产物为 debug
 
 ## 签名
 
-仓库里的 `release.keystore` / `nb4a.properties` 来自上游，**是公开的** ——
-任何人都能签出同名包冒充你的更新。正式分发请务必换成自己的密钥：
+`NekoBoxForAndroid/release.keystore` 是一份**固定的开发签名**（alias `androiddebugkey`），
+本地和 CI 使用同一份，因此 CI 产物可以直接覆盖安装本地构建的版本。
 
-```bash
-keytool -genkeypair -v -keystore my-release.jks -alias mykey \
-  -keyalg RSA -keysize 2048 -validity 10000
-```
+密码（`KEYSTORE_PASS` / `ALIAS_PASS` = `android`，`ALIAS_NAME` = `androiddebugkey`）
+写在 `local.properties`（本地）和 workflow 的环境变量里（CI）。
 
-换签名后，老版本无法覆盖安装（签名不匹配），需要卸载重装。
+> 注意：这份密钥是公开的，只能保证「更新可以覆盖安装」，**不能防冒充**。
+> 如果你要正式对外发布并防止他人签出同名包，需要换成自己私有的密钥：
+>
+> ```bash
+> keytool -genkeypair -v -keystore my-release.jks -alias mykey \
+>   -keyalg RSA -keysize 2048 -validity 10000
+> ```
+>
+> 换签名后老版本无法覆盖安装，必须卸载重装；同时要把 CI 的密码挪到
+> GitHub Secrets 里，不要把私有密钥提交进仓库。
+
 
 ## 更新内核
 

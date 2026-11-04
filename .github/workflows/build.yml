@@ -72,6 +72,12 @@ jobs:
 
       - name: Build APK
         working-directory: NekoBoxForAndroid
+        env:
+          # 固定签名：仓库里的 release.keystore 就是开发机 debug keystore 的副本，
+          # 保证 CI 产物和本地构建的签名一致，可以直接覆盖安装。
+          KEYSTORE_PASS: android
+          ALIAS_NAME: androiddebugkey
+          ALIAS_PASS: android
         run: |
           chmod +x gradlew
           ./gradlew assembleOssDebug --no-daemon --stacktrace
