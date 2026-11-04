@@ -44,8 +44,11 @@ jobs:
 
       - name: Install gomobile-matsuri
         run: |
-          go install github.com/MatsuriDayo/gomobile/cmd/gomobile@master2
-          go install github.com/MatsuriDayo/gomobile/cmd/gobind@master2
+          # 该 fork 的 go.mod 声明为 golang.org/x/mobile，不能用 go install pkg@ref，
+          # 必须在源码目录内编译（与本地构建方式一致）
+          git clone --depth=1 -b master2 https://github.com/MatsuriDayo/gomobile /tmp/gomobile
+          cd /tmp/gomobile
+          go install ./cmd/gomobile ./cmd/gobind
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Cache gomobile build cache
