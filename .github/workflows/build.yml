@@ -80,11 +80,20 @@ jobs:
           ALIAS_PASS: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleOssDebug --no-daemon --stacktrace
+          ./gradlew assembleOssRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nekobox-arm64-debug
-          path: NekoBoxForAndroid/app/build/outputs/apk/oss/debug/*.apk
+          name: nekobox-arm64-release
+          path: NekoBoxForAndroid/app/build/outputs/apk/oss/release/*arm64-v8a.apk
           if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            NekoBoxForAndroid/app/build/outputs/apk/oss/release/*arm64-v8a.apk \
+            --title "$GITHUB_REF_NAME" --generate-notes
