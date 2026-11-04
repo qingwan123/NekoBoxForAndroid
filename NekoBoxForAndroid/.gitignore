@@ -1,0 +1,21 @@
+*.iml
+.gradle
+.idea
+.vscode
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/libs/
+# geo 资源改为随仓库提交（自己维护，不再构建时下载）
+# /app/src/main/assets/sing-box
+/service_account_credentials.json
+jniLibs/
+/library/libcore_build/
+.idea/deploymentTargetDropDown.xml
+/nkmr
+
+# submodules
+/external

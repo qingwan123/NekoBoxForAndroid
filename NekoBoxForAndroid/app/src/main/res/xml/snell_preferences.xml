@@ -1,0 +1,69 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <EditTextPreference
+        app:icon="@drawable/ic_social_emoji_symbols"
+        app:key="name"
+        app:title="@string/profile_name"
+        app:useSimpleSummaryProvider="true" />
+
+    <PreferenceCategory app:title="@string/proxy_cat">
+        <EditTextPreference
+            app:icon="@drawable/ic_hardware_router"
+            app:key="serverAddress"
+            app:title="@string/server_address"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_maps_directions_boat"
+            app:key="serverPort"
+            app:title="@string/server_port"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_settings_password"
+            app:key="psk"
+            app:title="@string/snell_psk" />
+        <ListPreference
+            app:icon="@drawable/ic_action_copyright"
+            app:defaultValue="4"
+            app:entries="@array/snell_version_entry"
+            app:entryValues="@array/snell_version_entry_value"
+            app:key="version"
+            app:title="@string/snell_version"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="catObfs"
+        app:title="@string/snell_obfs_category">
+        <ListPreference
+            app:defaultValue="none"
+            app:entries="@array/snell_obfs_entry"
+            app:entryValues="@array/snell_obfs_entry_value"
+            app:key="obfsMode"
+            app:title="@string/snell_obfs_mode"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="obfsHost"
+            app:title="@string/snell_obfs_host"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="catV6"
+        app:title="@string/snell_v6_category">
+        <ListPreference
+            app:defaultValue="default"
+            app:entries="@array/snell_mode_entry"
+            app:entryValues="@array/snell_mode_entry_value"
+            app:key="mode"
+            app:title="@string/snell_mode"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:key="userKey"
+            app:title="@string/snell_userkey"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:key="reuse"
+            app:title="@string/snell_reuse" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

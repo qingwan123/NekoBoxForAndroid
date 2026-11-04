@@ -1,0 +1,22 @@
+# Gradle / Android
+NekoBoxForAndroid/.gradle/
+NekoBoxForAndroid/build/
+NekoBoxForAndroid/app/build/
+NekoBoxForAndroid/*/build/
+NekoBoxForAndroid/local.properties
+NekoBoxForAndroid/app/libs/libcore.aar
+NekoBoxForAndroid/libcore/.build/
+*.apk
+*.aab
+*.jks
+!NekoBoxForAndroid/release.keystore
+
+# Go 构建产物
+**/*.exe
+**/*.test
+
+# 编辑器 / 系统
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

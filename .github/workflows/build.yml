@@ -1,0 +1,81 @@
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: |
+            NekoBoxForAndroid/libcore/go.sum
+            sing-box/go.sum
+
+      - name: Install Android SDK / NDK
+        run: |
+          SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -fsSL -o cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline.zip -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" "platforms;android-35" "build-tools;35.0.0" \
+            "ndk;29.0.14206865" > /dev/null
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/29.0.14206865" >> "$GITHUB_ENV"
+
+      - name: Install gomobile-matsuri
+        run: |
+          go install github.com/MatsuriDayo/gomobile/cmd/gomobile@master2
+          go install github.com/MatsuriDayo/gomobile/cmd/gobind@master2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Cache gomobile build cache
+        uses: actions/cache@v4
+        with:
+          path: NekoBoxForAndroid/libcore/.build
+          key: gomobile-${{ hashFiles('sing-box/**', 'libneko/**', 'NekoBoxForAndroid/libcore/*.go') }}
+          restore-keys: |
+            gomobile-
+
+      - name: Build libcore.aar
+        working-directory: NekoBoxForAndroid/libcore
+        run: |
+          mkdir -p ../app/libs
+          go mod download
+          gomobile bind -androidapi 21 -target=android/arm64 \
+            -cache "$(pwd)/.build" \
+            -trimpath -ldflags='-s -w' \
+            -tags='with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api,with_naive_outbound' \
+            -o ../app/libs/libcore.aar .
+
+      - name: Build APK
+        working-directory: NekoBoxForAndroid
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleOssDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: nekobox-arm64-debug
+          path: NekoBoxForAndroid/app/build/outputs/apk/oss/debug/*.apk
+          if-no-files-found: error
