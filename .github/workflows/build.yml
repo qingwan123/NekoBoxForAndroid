@@ -100,9 +100,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APK=NekoBoxForAndroid/app/build/outputs/apk/oss/release/*arm64-v8a.apk
-          # annotated tag 用 tag 说明当正文；轻量 tag 退回自动生成
-          # （不能用 git tag --format 取，runner 上 tag 可能已被 peel 到 commit）
-          if [ "$(git for-each-ref "refs/tags/$GITHUB_REF_NAME" --format='%(objecttype)')" = "tag" ]; then
+          # 用 API 判断是否为 annotated tag：runner 上本地 tag ref 可能已被 peel 成 commit，
+          # 之前的 git for-each-ref 判断因此失效，正文退回成自动生成。
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME" --jq .object.type)" = "tag" ]; then
             gh release create "$GITHUB_REF_NAME" $APK --title "$GITHUB_REF_NAME" --notes-from-tag
           else
             gh release create "$GITHUB_REF_NAME" $APK --title "$GITHUB_REF_NAME" --generate-notes
