@@ -234,6 +234,11 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         url.queryParameter("encryption")?.let {
             encryption = it
         }
+    } else if (isVLESS) {
+        // VLESS 的 encryption 是后量子加密层，不能塞进 encryption(那是 flow)
+        url.queryParameter("encryption")?.let {
+            if (it != "none") vlessEncryption = it
+        }
     }
 
     url.queryParameter("packetEncoding")?.let {
@@ -442,7 +447,10 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
         .addQueryParameter("type", type)
 
     if (isVLESS) {
-        builder.addQueryParameter("encryption", "none")
+        builder.addQueryParameter(
+            "encryption",
+            vlessEncryption.takeIf { it.isNotBlank() } ?: "none"
+        )
         if (encryption != "auto") builder.addQueryParameter("flow", encryption)
     }
 
@@ -644,6 +652,9 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 uuid = bean.uuid
                 if (bean.encryption.isNotBlank() && bean.encryption != "auto") {
                     flow = bean.encryption
+                }
+                bean.vlessEncryption?.takeIf { it.isNotBlank() }?.let {
+                    encryption = it
                 }
                 when (bean.packetEncoding) {
                     0 -> packet_encoding = ""

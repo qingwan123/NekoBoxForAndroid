@@ -29,6 +29,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val password = pbm.add(PreferenceBinding(Type.Text, "password"))
     private val alterId = pbm.add(PreferenceBinding(Type.TextToInt, "alterId"))
     private val encryption = pbm.add(PreferenceBinding(Type.Text, "encryption"))
+    private val vlessEncryption = pbm.add(PreferenceBinding(Type.Text, "vlessEncryption"))
     private val type = pbm.add(PreferenceBinding(Type.Text, "type"))
     private val host = pbm.add(PreferenceBinding(Type.Text, "host"))
     private val path = pbm.add(PreferenceBinding(Type.Text, "path"))
@@ -105,6 +106,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         packetEncoding.preference.isVisible = isVmess || isVless
         alterId.preference.isVisible = isVmess
         encryption.preference.isVisible = isVmess || isVless
+        vlessEncryption.preference.isVisible = isVless
         username.preference.isVisible = isHttp
         password.preference.isVisible = isHttp
 

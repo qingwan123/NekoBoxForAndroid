@@ -413,4 +413,6 @@
     <string name="backup_summary">如果路由規則不與設定檔一起備份，則自訂出站將丟失。</string>
     <string name="backup_not_file">不是一個備份檔案，預計 .json，但 %s</string>
     <string name="packet_encoding">封包編碼</string>
+    <string name="vless_encryption">VLESS 加密层</string>
+    <string name="vless_encryption_sum">后量子加密参数，如 mlkem768x25519plus.native.0rtt.&lt;密钥&gt;，留空表示关闭</string>
 </resources>

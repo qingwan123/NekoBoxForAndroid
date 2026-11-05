@@ -12,6 +12,7 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/protocol/vless/encryption"
 	"github.com/sagernet/sing-box/transport/v2ray"
 	"github.com/sagernet/sing-vmess/packetaddr"
 	"github.com/sagernet/sing-vmess/vless"
@@ -45,6 +46,8 @@ type Outbound struct {
 	transport       adapter.V2RayClientTransport
 	packetAddr      bool
 	xudp            bool
+	// VLESS 后量子加密层（mlkem768x25519plus），未配置时为 nil
+	encryption *encryption.ClientInstance
 }
 
 func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.VLESSOutboundOptions) (adapter.Outbound, error) {
@@ -95,6 +98,17 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	outbound.client, err = vless.NewClient(options.UUID, options.Flow, logger)
 	if err != nil {
 		return nil, err
+	}
+	// VLESS Encryption：层在 VLESS 内部、传输之下，与 TLS/REALITY 无关
+	if options.Encryption != "" && options.Encryption != "none" {
+		encryptionConfig, err := parseClientEncryption(options.Encryption)
+		if err != nil {
+			return nil, E.Cause(err, "parse encryption")
+		}
+		outbound.encryption = &encryption.ClientInstance{}
+		if err := outbound.encryption.Init(encryptionConfig.keys, encryptionConfig.xorMode, encryptionConfig.seconds, encryptionConfig.padding); err != nil {
+			return nil, E.Cause(err, "initialize encryption")
+		}
 	}
 	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, common.PtrValueOrDefault(options.Multiplex))
 	if err != nil {
@@ -201,6 +215,10 @@ func (h *vlessDialer) DialContext(ctx context.Context, network string, destinati
 	if err != nil {
 		return nil, err
 	}
+	conn, err = h.wrapEncryption(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
 	switch N.NetworkName(network) {
 	case N.NetworkTCP:
 		h.logger.InfoContext(ctx, "outbound connection to ", destination)
@@ -240,6 +258,11 @@ func (h *vlessDialer) ListenPacket(ctx context.Context, destination M.Socksaddr)
 	} else {
 		conn, err = h.dialer.DialContext(ctx, N.NetworkTCP, h.serverAddr)
 	}
+	if err != nil {
+		common.Close(conn)
+		return nil, err
+	}
+	conn, err = h.wrapEncryption(ctx, conn)
 	if err != nil {
 		common.Close(conn)
 		return nil, err

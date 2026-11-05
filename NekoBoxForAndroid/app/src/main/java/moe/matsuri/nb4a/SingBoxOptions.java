@@ -4252,6 +4252,9 @@ public class SingBoxOptions {
 
         public String flow;
 
+        /** VLESS 后量子加密层（mlkem768x25519plus...），空表示关闭 */
+        public String encryption;
+
         public String network;
 
         public OutboundTLSOptions tls;
