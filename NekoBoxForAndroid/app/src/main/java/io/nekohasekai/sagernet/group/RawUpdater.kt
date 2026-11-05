@@ -345,6 +345,15 @@ object RawUpdater : GroupUpdater() {
                                         }
                                     }
 
+                                    // VLESS 后量子加密层。机场的 Clash 配置里带这个字段，
+                                    // 之前没解析，导致订阅导入的节点加密层为空、连接全部超时。
+                                    "encryption" -> if (bean is VMessBean && bean.isVLESS) {
+                                        val enc = opt.value?.toString().orEmpty()
+                                        if (enc.isNotBlank() && enc != "none") {
+                                            bean.vlessEncryption = enc
+                                        }
+                                    }
+
                                     "packet-encoding" -> if (bean is VMessBean) {
                                         bean.packetEncoding = when ((opt.value as? String)) {
                                             "packetaddr" -> 1
