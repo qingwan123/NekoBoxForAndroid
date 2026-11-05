@@ -31,9 +31,6 @@ class StatsBar @JvmOverloads constructor(
     private lateinit var rxText: TextView
     private lateinit var behavior: YourBehavior
 
-    // 底栏滑动时同步位移的目标（layout_main.xml 里的启动按钮）
-    private var fab: View? = null
-
     var allowShow = true
 
     private companion object {
@@ -42,35 +39,43 @@ class StatsBar @JvmOverloads constructor(
     }
 
     /**
-     * 速度栏滑入滑出靠的是它自己的 translationY。CoordinatorLayout 在布局 FAB 时
-     * 用的是 anchor 的 **layout 边界**（getTop/getBottom），**不包含 translationY** ——
-     * 所以无论怎么 requestLayout()，FAB 都不会跟着抬起来，这就是「有时候按钮抬不起来」
-     * 的真正原因（能抬起的那几次是被别的原因顺手触发了 layout）。
+     * 速度栏滑入滑出靠的是它自己的 translationY，而 CoordinatorLayout 在布局
+     * FAB 时用的是 anchor 的屏幕坐标（包含 translationY）。translationY 变化
+     * 只会触发重绘、不会触发重新布局，所以 FAB 要等到下一次 layout（比如文本
+     * 变化引起的高度变化）才会被抬起 —— 表现出来就是「有时候按钮抬不起来」。
      *
-     * 可靠做法：让 FAB 的 translationY 与底栏严格相等。两者的相对位置不变，
-     * BottomAppBar 自己画的圆弧 cradle 也随底栏一起移动，外观与原来完全一致。
-     * 这里同时用 setter + 每帧 preDraw 两条路，覆盖 ViewPropertyAnimator 绕过 setter 的情况。
+     * 这里在位移变化时主动请求父容器重新布局：FAB 位置由系统按 anchor 重算，
+     * BottomAppBar 的圆弧 cradle 也会跟着重画，外观和位置都不需要我们干预。
      */
     override fun setTranslationY(translationY: Float) {
         super.setTranslationY(translationY)
-        syncFabTranslation(translationY)
+        requestAnchorRelayout()
     }
 
-    private fun syncFabTranslation(translationY: Float) {
-        val target = fab ?: return
-        if (target.translationY != translationY) {
-            target.translationY = translationY
-        }
+    private var lastTranslationY = Float.NaN
+
+    private fun requestAnchorRelayout() {
+        val parentView = parent as? ViewGroup ?: return
+        if (parentView.isLayoutRequested) return
+        // 放到下一帧再布局，避免在绘制/布局过程中直接 requestLayout
+        parentView.post { if (!parentView.isLayoutRequested) parentView.requestLayout() }
     }
 
+    /**
+     * ViewPropertyAnimator 在硬件加速下不一定走 setTranslationY，
+     * 所以额外在每帧绘制前检查位移是否变化，变化了就请求重新布局。
+     */
     private val anchorSync = ViewTreeObserver.OnPreDrawListener {
-        syncFabTranslation(translationY)
+        val current = translationY
+        if (current != lastTranslationY) {
+            lastTranslationY = current
+            requestAnchorRelayout()
+        }
         true
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        fab = (parent as? ViewGroup)?.findViewById(R.id.fab)
         viewTreeObserver.addOnPreDrawListener(anchorSync)
     }
 
