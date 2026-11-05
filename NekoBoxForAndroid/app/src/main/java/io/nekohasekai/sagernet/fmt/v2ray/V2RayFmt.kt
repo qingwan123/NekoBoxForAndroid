@@ -132,6 +132,26 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         bean.parseDuckSoft(url)
     }
 
+    if (link.startsWith("vless://")) {
+        val fromUrl = url.queryParameter("encryption")
+        Logs.d(
+            "vless parse: isVLESS=" + bean.isVLESS +
+                " queryParameter(encryption)=" + fromUrl +
+                " bean.vlessEncryption=" + bean.vlessEncryption
+        )
+        // 兜底：解析器漏赋值时直接从原始链接取，避免节点带着空加密层去连服务端
+        if (bean.vlessEncryption.isNullOrBlank() && !fromUrl.isNullOrBlank() && fromUrl != "none") {
+            bean.vlessEncryption = fromUrl
+        }
+        if (bean.vlessEncryption.isNullOrBlank()) {
+            val raw = link.substringAfter("encryption=", "").substringBefore("&")
+            if (raw.isNotBlank() && raw != "none") {
+                bean.vlessEncryption = raw
+                Logs.d("vless parse: recovered encryption from raw link")
+            }
+        }
+    }
+
     return bean
 }
 
