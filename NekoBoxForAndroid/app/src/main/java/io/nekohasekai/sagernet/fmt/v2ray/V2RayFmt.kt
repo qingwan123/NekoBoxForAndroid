@@ -242,13 +242,9 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
     }
 
     url.queryParameter("packetEncoding")?.let {
-        // 后量子加密层与 xudp/packetaddr 的 UDP 封装不兼容：订阅里通常默认给 xudp，
-        // 一起用会让节点所有 UDP（含 DNS）失败，表现为整条链路超时。
-        if (!isVLESS || vlessEncryption.isNullOrBlank()) {
-            when (it) {
-                "packet" -> packetEncoding = 1
-                "xudp" -> packetEncoding = 2
-            }
+        when (it) {
+            "packet" -> packetEncoding = 1
+            "xudp" -> packetEncoding = 2
         }
     }
 
@@ -662,17 +658,8 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 }
                 when (bean.packetEncoding) {
                     0 -> packet_encoding = ""
-                    1 -> if (bean.vlessEncryption.isNullOrBlank()) {
-                        packet_encoding = "packetaddr"
-                    } else {
-                        packet_encoding = ""
-                    }
-                    2 -> if (bean.vlessEncryption.isNullOrBlank()) {
-                        packet_encoding = "xudp"
-                    } else {
-                        // 与 encryption 层冲突（UDP 会全废），强制关闭
-                        packet_encoding = ""
-                    }
+                    1 -> packet_encoding = "packetaddr"
+                    2 -> packet_encoding = "xudp"
                 }
                 tls = buildSingBoxOutboundTLS(bean)
                 transport = buildSingBoxOutboundStreamSettings(bean)
