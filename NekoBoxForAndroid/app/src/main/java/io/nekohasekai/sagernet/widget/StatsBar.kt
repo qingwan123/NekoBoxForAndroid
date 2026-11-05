@@ -6,7 +6,10 @@ import android.text.format.Formatter
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewPropertyAnimator
 import android.view.ViewTreeObserver
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import androidx.appcompat.widget.TooltipCompat
 import androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -89,34 +92,61 @@ class StatsBar @JvmOverloads constructor(
         return behavior
     }
 
+    /**
+     * 收/起由这里自己管，不再依赖 Material 的 HideBottomViewOnScrollBehavior。
+     *
+     * 那个实现用内部 currentState 做去重：状态在动画开始前就被改成目标值，而
+     * currentAnimator.cancel() 会让位置停在半途 —— 快速连续滚动时状态与位置脱节，
+     * 之后 rolling 方向与状态对不上就整体失效（「列表划快了底栏就不动了」）。
+     *
+     * 这里只用 targetY 一个真相：方向变了才换动画，同向连续滚动直接忽略。
+     */
     class YourBehavior(val getAllowShow: () -> Boolean) : Behavior() {
+
+        private var targetY = 0f
+        private var animator: ViewPropertyAnimator? = null
+
+        private fun hiddenOffset(child: View): Float {
+            val lp = child.layoutParams as? ViewGroup.MarginLayoutParams
+            return (child.height + (lp?.bottomMargin ?: 0)).toFloat()
+        }
+
+        private fun moveTo(child: View, y: Float, duration: Long, accelerate: Boolean) {
+            if (targetY == y) return
+            targetY = y
+            animator?.cancel()
+            animator = child.animate()
+                .translationY(y)
+                .setDuration(duration)
+                .setInterpolator(
+                    if (accelerate) AccelerateInterpolator() else DecelerateInterpolator()
+                )
+                .also { it.start() }
+        }
 
         override fun onNestedScroll(
             coordinatorLayout: CoordinatorLayout, child: BottomAppBar, target: View,
             dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int,
             type: Int, consumed: IntArray,
         ) {
-            super.onNestedScroll(
-                coordinatorLayout,
-                child,
-                target,
-                dxConsumed,
-                dyConsumed + dyUnconsumed,
-                dxUnconsumed,
-                0,
-                type,
-                consumed
-            )
+            if (!getAllowShow()) return
+            val dy = dyConsumed + dyUnconsumed
+            when {
+                // 手指上滑（内容上移）→ 收起
+                dy > 0 -> moveTo(child, hiddenOffset(child), 175L, true)
+                // 手指下滑 → 抬起
+                dy < 0 -> moveTo(child, 0f, 225L, false)
+            }
         }
 
         override fun slideUp(child: BottomAppBar) {
             if (!getAllowShow()) return
-            super.slideUp(child)
+            moveTo(child, 0f, 225L, false)
         }
 
         override fun slideDown(child: BottomAppBar) {
             if (!getAllowShow()) return
-            super.slideDown(child)
+            moveTo(child, hiddenOffset(child), 175L, true)
         }
 
         override fun onStopNestedScroll(
@@ -125,17 +155,17 @@ class StatsBar @JvmOverloads constructor(
             target: View,
             type: Int,
         ) {
-            super.onStopNestedScroll(coordinatorLayout, child, target, type)
             if (!getAllowShow()) return
-
-            // 快速滑动（连续滚动 / fling）会一次次打断上一条位移动画，底栏可能停在半途；
-            // 而 Behavior 内部的状态在这一刻已经记成「已到位」，于是之后无论怎么滑都不再响应
-            // —— 表现就是「划快了底栏就不动了」。松手时按离哪一端近归位，顺便把状态纠正回来。
-            val margins = child.layoutParams as? ViewGroup.MarginLayoutParams
-            val hiddenY = (child.height + (margins?.bottomMargin ?: 0)).toFloat()
+            // 动画被打断时停在中途：按离哪端近归位，并把 targetY 校正回来
+            val hidden = hiddenOffset(child)
             val y = child.translationY
-            if (y > 1f && y < hiddenY - 1f) {
-                if (y > hiddenY / 2f) slideDown(child) else slideUp(child)
+            if (y > 1f && y < hidden - 1f) {
+                targetY = if (y > hidden / 2f) hidden else 0f
+                animator?.cancel()
+                animator = child.animate()
+                    .translationY(targetY)
+                    .setDuration(120L)
+                    .also { it.start() }
             }
         }
     }
