@@ -33,6 +33,11 @@ class StatsBar @JvmOverloads constructor(
 
     var allowShow = true
 
+    private companion object {
+        // 连接后等待服务稳定再自动测速(ms)
+        const val AUTO_TEST_DELAY = 1200L
+    }
+
     /**
      * 速度栏滑入滑出靠的是它自己的 translationY，而 CoordinatorLayout 在布局
      * FAB 时用的是 anchor 的屏幕坐标（包含 translationY）。translationY 变化
@@ -138,6 +143,14 @@ class StatsBar @JvmOverloads constructor(
             postWhenStarted {
                 if (allowShow) performShow()
                 setStatus(app.getText(R.string.vpn_connected))
+                // 连接后自动测一次当前节点的延迟，结果显示在底栏状态里
+                postDelayed({
+                    if (isAttachedToWindow && isEnabled &&
+                        DataStore.serviceState.connected
+                    ) {
+                        testConnection()
+                    }
+                }, AUTO_TEST_DELAY)
             }
         } else {
             postWhenStarted {
