@@ -848,29 +848,27 @@ class ConfigurationFragment @JvmOverloads constructor(
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
             test.proxyN = profilesList.size
 
-            // 优先走批量测速：所有节点共用一个内核实例，按 outbound tag 并发拨号。
-            // 逐个启动内核（下面的旧路径）在节点多时慢一个数量级，仅作兜底。
+            // 优先走批量测速：所有节点共用一次内核启动，按 outbound tag 并发拨号，
+            // 每测完一个就刷新弹窗（和旧版一样的流式体验，但省掉 N 次内核初始化）。
             var batchOk = false
             if (profilesList.isNotEmpty()) {
                 try {
-                    val results = UrlTest().doTestAll(
+                    var tested = 0
+                    UrlTest().doTestAll(
                         profilesList, DataStore.connectionTestConcurrent
-                    )
-                    if (results.isNotEmpty()) {
-                        profilesList.forEach { profile ->
-                            profile.status = 0
-                            val latency = results[profile.id]
-                            if (latency == null || latency < 0) {
-                                profile.status = 3
-                                profile.error = "timeout"
-                            } else {
-                                profile.status = 1
-                                profile.ping = latency
-                            }
-                            test.update(profile)
+                    ) { profile, latency ->
+                        profile.status = 0
+                        if (latency < 0) {
+                            profile.status = 3
+                            profile.error = "timeout"
+                        } else {
+                            profile.status = 1
+                            profile.ping = latency
                         }
-                        batchOk = true
+                        test.update(profile)
+                        tested++
                     }
+                    batchOk = tested > 0
                 } catch (e: Exception) {
                     Logs.w(e)
                     Logs.d("batch url test failed, falling back to per-node")

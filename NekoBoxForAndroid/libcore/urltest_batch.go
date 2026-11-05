@@ -88,3 +88,25 @@ func UrlTestBatch(instance *BoxInstance, tagsJSON string, link string, timeout i
 	resultJSON = string(content)
 	return
 }
+// UrlTestTag 在已启动的实例里测**单个** outbound（-1 表示失败）。
+// 与 UrlTestBatch 相比，这个可以由 App 侧自己控制并发并逐个回显结果。
+//
+//export UrlTestTag
+func UrlTestTag(instance *BoxInstance, tag string, link string, timeout int32) (latency int32) {
+	defer device.DeferPanicToError("UrlTestTag", func(err error) {
+		latency = -1
+	})
+	if instance == nil || instance.Box == nil {
+		return -1
+	}
+	var tracker adapter.ConnectionTracker
+	if instance.v2api != nil {
+		tracker = instance.v2api.StatsService()
+	}
+	client := boxapi.CreateProxyHttpClientWithTag(instance.Box, tracker, tag)
+	result, err := speedtest.UrlTest(client, link, timeout, speedtest.UrlTestStandard_RTT)
+	if err != nil {
+		return -1
+	}
+	return result
+}
