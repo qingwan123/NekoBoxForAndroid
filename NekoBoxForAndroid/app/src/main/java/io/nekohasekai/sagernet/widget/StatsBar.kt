@@ -118,6 +118,26 @@ class StatsBar @JvmOverloads constructor(
             if (!getAllowShow()) return
             super.slideDown(child)
         }
+
+        override fun onStopNestedScroll(
+            coordinatorLayout: CoordinatorLayout,
+            child: BottomAppBar,
+            target: View,
+            type: Int,
+        ) {
+            super.onStopNestedScroll(coordinatorLayout, child, target, type)
+            if (!getAllowShow()) return
+
+            // 快速滑动（连续滚动 / fling）会一次次打断上一条位移动画，底栏可能停在半途；
+            // 而 Behavior 内部的状态在这一刻已经记成「已到位」，于是之后无论怎么滑都不再响应
+            // —— 表现就是「划快了底栏就不动了」。松手时按离哪一端近归位，顺便把状态纠正回来。
+            val margins = child.layoutParams as? ViewGroup.MarginLayoutParams
+            val hiddenY = (child.height + (margins?.bottomMargin ?: 0)).toFloat()
+            val y = child.translationY
+            if (y > 1f && y < hiddenY - 1f) {
+                if (y > hiddenY / 2f) slideDown(child) else slideUp(child)
+            }
+        }
     }
 
 
