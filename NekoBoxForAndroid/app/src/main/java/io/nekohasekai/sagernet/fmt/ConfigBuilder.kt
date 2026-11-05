@@ -209,11 +209,9 @@ fun buildConfig(
             if (isVPN) inbounds.add(Inbound_TunOptions().apply {
                 type = "tun"
                 tag = "tun-in"
-                stack = when (DataStore.tunImplementation) {
-                    TunImplementation.GVISOR -> "gvisor"
-                    TunImplementation.SYSTEM -> "system"
-                    else -> "mixed"
-                }
+                // sing-box 1.15 起 sing-tun 自带 TCP/IP 栈（性能/功耗/内存全面优于旧的
+                // gvisor/system 实现），原来的 stack 选项已废弃（1.17 移除）。
+                // 这里不再设置 stack，即启用新栈。
                 endpoint_independent_nat = true
                 mtu = DataStore.mtu
                 // sing-box 1.12 起 tun 的 inet4_address/inet6_address 合并为 address
