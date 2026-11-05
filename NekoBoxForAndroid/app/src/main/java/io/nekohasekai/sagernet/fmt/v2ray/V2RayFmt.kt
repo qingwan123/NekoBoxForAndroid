@@ -453,7 +453,7 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     if (isVLESS) {
         builder.addQueryParameter(
             "encryption",
-            vlessEncryption.takeIf { it.isNotBlank() } ?: "none"
+            vlessEncryption.orEmpty().takeIf { it.isNotBlank() } ?: "none"
         )
         if (encryption != "auto") builder.addQueryParameter("flow", encryption)
     }
