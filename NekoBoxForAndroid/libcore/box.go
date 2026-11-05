@@ -19,16 +19,11 @@ import (
 	"github.com/sagernet/sing-box/protocol/group"
 
 	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/common/dialer"
 	"github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/pause"
 )
-
-func init() {
-	dialer.DoNotSelectInterface = true
-}
 
 var mainInstance *BoxInstance
 

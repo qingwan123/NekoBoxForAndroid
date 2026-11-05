@@ -20,3 +20,6 @@ NekoBoxForAndroid/libcore/.build/
 *.iml
 .DS_Store
 Thumbs.db
+
+# 1.14 内核的本地备份（回退用，不入库）
+sing-box-1.14-backup/

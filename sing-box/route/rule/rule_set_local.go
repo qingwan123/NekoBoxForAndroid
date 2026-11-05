@@ -11,7 +11,6 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/srs"
 	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/nekoutils"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -55,28 +54,6 @@ func NewLocalRuleSet(ctx context.Context, logger logger.Logger, tag string, opti
 			return nil, err
 		}
 	} else {
-		if strings.HasPrefix(options.LocalOptions.Path, "geoip:") {
-			rules, err := nekoutils.GetGeoIPHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geoip:"))
-			if err != nil {
-				return nil, err
-			}
-			err = ruleSet.reloadRules(rules)
-			if err != nil {
-				return nil, err
-			}
-			return ruleSet, nil
-		}
-		if strings.HasPrefix(options.LocalOptions.Path, "geosite:") {
-			rules, err := nekoutils.GetGeoSiteHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geosite:"))
-			if err != nil {
-				return nil, err
-			}
-			err = ruleSet.reloadRules(rules)
-			if err != nil {
-				return nil, err
-			}
-			return ruleSet, nil
-		}
 		filePath := filemanager.BasePath(ctx, strings.ReplaceAll(options.LocalOptions.Path, C.RuleSetTagPlaceholder, tag))
 		filePath, _ = filepath.Abs(filePath)
 		err := ruleSet.reloadFile(filePath)
@@ -130,7 +107,6 @@ func (s *LocalRuleSet) reloadFile(path string) error {
 		if err != nil {
 			return err
 		}
-
 	case C.RuleSetFormatBinary:
 		setFile, err := filemanager.Open(s.ctx, path)
 		if err != nil {
@@ -144,7 +120,7 @@ func (s *LocalRuleSet) reloadFile(path string) error {
 	default:
 		return E.New("unknown rule-set format: ", s.fileFormat)
 	}
-	plainRuleSet, err := ruleSet.Upgrade()
+	plainRuleSet, err := mmapRuleSet(s.ctx, s.logger, s.tag, ruleSet).Upgrade()
 	if err != nil {
 		return err
 	}

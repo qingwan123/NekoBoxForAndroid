@@ -23,8 +23,12 @@
 | 组件 | 上游 | 基线提交 |
 |---|---|---|
 | NekoBoxForAndroid | MatsuriDayo/NekoBoxForAndroid | `5768494` (1.4.2) |
-| sing-box | MatsuriDayo/sing-box (`1.14.x`) | `0bd0381` (1.14.0-neko-1) |
+| sing-box | **SagerNet/sing-box** | `v1.15.0-alpha.13` |
 | libneko | MatsuriDayo/libneko | `1c47a3a` |
+
+内核已从 `MatsuriDayo/sing-box`（作者弃坑，最高只到 1.14）切到 **SagerNet 上游 1.15**，
+并把 fork 独有的 `nekoutils` / `boxapi` 两个包（共 16K）移植过来，
+以后可以直接跟上游版本走。旧的 fork 放在 `sing-box-1.14-backup/`（不入库）备回退。
 
 所有在基线上的改动都以 patch 形式保存在 `docs/patches/`，
 方便上游更新后重放（`git am` 或 `git apply`）。

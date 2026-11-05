@@ -155,9 +155,17 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 		UserId: uid,
 	}
 	if packageName != "" {
-		owner.AndroidPackageNames = []string{packageName}
+		owner.PackageNames = []string{packageName}
 	}
 	return owner, nil
+}
+
+func (w *boxPlatformInterfaceWrapper) UsePlatformAutoRedirect() bool {
+	return false
+}
+
+func (w *boxPlatformInterfaceWrapper) CreateAutoRedirect(options adapter.AutoRedirectOptions) (adapter.AutoRedirectSession, error) {
+	return nil, E.New("auto redirect not supported")
 }
 
 func (w *boxPlatformInterfaceWrapper) UsePlatformNotification() bool {

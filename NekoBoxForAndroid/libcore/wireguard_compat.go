@@ -50,7 +50,7 @@ func registerLegacyWireGuardOutbound(registry *outbound.Registry) {
 		if len(options.Peers) > 0 {
 			for _, peer := range options.Peers {
 				if len(peer.AllowedIPs) == 0 {
-					peer.AllowedIPs = badoption.Listable[netip.Prefix](allTraffic)
+					peer.AllowedIPs = option.LegacyListable[netip.Prefix](allTraffic)
 				}
 				endpointOptions.Peers = append(endpointOptions.Peers, peer)
 			}
@@ -61,7 +61,7 @@ func registerLegacyWireGuardOutbound(registry *outbound.Registry) {
 				PublicKey:    options.PeerPublicKey,
 				PreSharedKey: options.PreSharedKey,
 				Reserved:     options.Reserved,
-				AllowedIPs:   badoption.Listable[netip.Prefix](allTraffic),
+				AllowedIPs:   option.LegacyListable[netip.Prefix](allTraffic),
 			}}
 		}
 		return wireguard.NewEndpoint(ctx, router, logger, tag, endpointOptions)
