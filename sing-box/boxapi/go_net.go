@@ -21,3 +21,18 @@ func DialContext(ctx context.Context, box *box.Box, tracker adapter.ConnectionTr
 	}
 	return conn, nil
 }
+// DialContextWithTag 与 DialContext 相同，但走指定的 outbound（而不是默认出口），
+// 用于「同一个内核实例里并发测试多个节点」。
+func DialContextWithTag(ctx context.Context, box *box.Box, tracker adapter.ConnectionTracker, outboundTag, network, addr string) (net.Conn, error) {
+	if outboundTag == "" {
+		outboundTag = box.Outbound().Default().Tag()
+	}
+	conn, err := dialer.NewDetour(box.Outbound(), outboundTag, true).DialContext(ctx, network, metadata.ParseSocksaddr(addr))
+	if err != nil {
+		return nil, err
+	}
+	if ss, ok := tracker.(*SbStatsService); ok {
+		conn = ss.RoutedConnectionInternal("", outboundTag, "", conn, false)
+	}
+	return conn, nil
+}

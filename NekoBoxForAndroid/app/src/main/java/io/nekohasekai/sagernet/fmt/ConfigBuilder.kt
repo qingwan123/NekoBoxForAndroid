@@ -65,7 +65,11 @@ class ConfigBuildResult(
 }
 
 fun buildConfig(
-    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false
+    proxy: ProxyEntity,
+    forTest: Boolean = false,
+    forExport: Boolean = false,
+    // 批量测速时传入全部待测节点：一次构建，所有节点各自一个 outbound
+    testAll: List<ProxyEntity>? = null,
 ): ConfigBuildResult {
 
     if (proxy.type == TYPE_CONFIG) {
@@ -488,7 +492,16 @@ fun buildConfig(
         }
 
         // build outbounds
-        if (buildSelector) {
+        if (testAll != null) {
+            // 批量测速：每个节点一个 outbound，共用一个内核实例
+            testAll.forEach { entity -> tagMap[entity.id] = buildChain(entity.id, entity) }
+            outbounds.add(0, Outbound_SelectorOptions().apply {
+                type = "selector"
+                tag = TAG_PROXY
+                default_ = tagMap[testAll.first().id]
+                outbounds = testAll.mapNotNull { tagMap[it.id] }
+            })
+        } else if (buildSelector) {
             val list = group.id.let { SagerDatabase.proxyDao.getByGroup(it) }
             list.forEach {
                 tagMap[it.id] = buildChain(it.id, it)
@@ -511,8 +524,8 @@ fun buildConfig(
         // sing-box 1.14 里 route.final 为空时会退回「第一个 outbound」——NekoBox 的
         // 第一个 outbound 是 direct，会导致所有流量直连（表现为只有手动配置了
         // socks 代理的 App 才走代理）。
-        if (!forTest) {
-            val defaultProxyTag = if (buildSelector) TAG_PROXY else tagMap[proxy.id]
+        if (!forTest || testAll != null) {
+            val defaultProxyTag = if (buildSelector || testAll != null) TAG_PROXY else tagMap[proxy.id]
             if (!defaultProxyTag.isNullOrEmpty()) {
                 route.final_ = defaultProxyTag
             }

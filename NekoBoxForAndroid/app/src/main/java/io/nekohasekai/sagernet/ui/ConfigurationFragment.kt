@@ -847,32 +847,63 @@ class ConfigurationFragment @JvmOverloads constructor(
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
             test.proxyN = profilesList.size
-            val profiles = ConcurrentLinkedQueue(profilesList)
-            repeat(DataStore.connectionTestConcurrent) {
-                testJobs.add(launch(Dispatchers.IO) {
-                    val urlTest = UrlTest() // note: this is NOT in bg process
-                    while (isActive) {
-                        val profile = profiles.poll() ?: break
-                        profile.status = 0
 
-                        try {
-                            val result = urlTest.doTest(profile)
-                            profile.status = 1
-                            profile.ping = result
-                        } catch (e: PluginManager.PluginNotFoundException) {
-                            profile.status = 2
-                            profile.error = e.readableMessage
-                        } catch (e: Exception) {
-                            profile.status = 3
-                            profile.error = e.readableMessage
+            // 优先走批量测速：所有节点共用一个内核实例，按 outbound tag 并发拨号。
+            // 逐个启动内核（下面的旧路径）在节点多时慢一个数量级，仅作兜底。
+            var batchOk = false
+            if (profilesList.isNotEmpty()) {
+                try {
+                    val results = UrlTest().doTestAll(
+                        profilesList, DataStore.connectionTestConcurrent
+                    )
+                    if (results.isNotEmpty()) {
+                        profilesList.forEach { profile ->
+                            profile.status = 0
+                            val latency = results[profile.id]
+                            if (latency == null || latency < 0) {
+                                profile.status = 3
+                                profile.error = "timeout"
+                            } else {
+                                profile.status = 1
+                                profile.ping = latency
+                            }
+                            test.update(profile)
                         }
-
-                        test.update(profile)
+                        batchOk = true
                     }
-                })
+                } catch (e: Exception) {
+                    Logs.w(e)
+                    Logs.d("batch url test failed, falling back to per-node")
+                }
             }
 
-            testJobs.joinAll()
+            if (!batchOk) {
+                val profiles = ConcurrentLinkedQueue(profilesList)
+                repeat(DataStore.connectionTestConcurrent) {
+                    testJobs.add(launch(Dispatchers.IO) {
+                        val urlTest = UrlTest() // note: this is NOT in bg process
+                        while (isActive) {
+                            val profile = profiles.poll() ?: break
+                            profile.status = 0
+
+                            try {
+                                val result = urlTest.doTest(profile)
+                                profile.status = 1
+                                profile.ping = result
+                            } catch (e: PluginManager.PluginNotFoundException) {
+                                profile.status = 2
+                                profile.error = e.readableMessage
+                            } catch (e: Exception) {
+                                profile.status = 3
+                                profile.error = e.readableMessage
+                            }
+
+                            test.update(profile)
+                        }
+                    })
+                }
+                testJobs.joinAll()
+            }
 
             runOnMainDispatcher {
                 test.cancel()
