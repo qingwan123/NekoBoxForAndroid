@@ -105,23 +105,82 @@ class StatsBar @JvmOverloads constructor(
 
         private var targetY = 0f
         private var animator: ViewPropertyAnimator? = null
+        private var animating = false
 
         private fun hiddenOffset(child: View): Float {
             val lp = child.layoutParams as? ViewGroup.MarginLayoutParams
             return (child.height + (lp?.bottomMargin ?: 0)).toFloat()
         }
 
+        /**
+         * 绕开 `BottomAppBar.Behavior` 的 hideOnScroll 门控。
+         *
+         * 它内部是 `getHideOnScroll() && super.onStartNestedScroll(...)`，而 hideOnScroll
+         * 只在 StatsBar.changeState() 里赋值 —— 服务已连接时才创建视图、或状态回调漏掉的
+         * 情况下这个字段可能是 false，于是底栏**根本收不到**后面的 pre/scroll 回调，
+         * 表现为怎么划都不动、且和快慢无关。这里直接用 allowShow 判断，不再依赖那个字段。
+         */
+        override fun onStartNestedScroll(
+            coordinatorLayout: CoordinatorLayout,
+            child: BottomAppBar,
+            directTargetChild: View,
+            target: View,
+            axes: Int,
+            type: Int,
+        ): Boolean {
+            return axes == androidx.core.view.ViewCompat.SCROLL_AXIS_VERTICAL && getAllowShow()
+        }
+
         private fun moveTo(child: View, y: Float, duration: Long, accelerate: Boolean) {
-            if (targetY == y) return
+            // 判据是实际位置 + 动画是否还在跑，而不是一个可能脱节的内部状态：
+            // 已经到位就不动；同向且动画仍在跑就不打断；其余情况（被打断、方向相反）一律纠正。
+            if (kotlin.math.abs(child.translationY - y) < 1f) {
+                targetY = y
+                return
+            }
+            if (targetY == y && animating) return
             targetY = y
             animator?.cancel()
+            animating = true
             animator = child.animate()
                 .translationY(y)
                 .setDuration(duration)
                 .setInterpolator(
                     if (accelerate) AccelerateInterpolator() else DecelerateInterpolator()
                 )
+                .setListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        animating = false
+                    }
+                })
                 .also { it.start() }
+        }
+
+        private fun handleScroll(child: BottomAppBar, dy: Int) {
+            if (!getAllowShow() || dy == 0) return
+            when {
+                // 手指上滑（内容上移）→ 收起
+                dy > 0 -> moveTo(child, hiddenOffset(child), 175L, true)
+                // 手指下滑 → 抬起
+                dy < 0 -> moveTo(child, 0f, 225L, false)
+            }
+        }
+
+        /**
+         * 快速划动时 RecyclerView 往往把 dy 全部消费掉，onNestedScroll 里拿到的增量
+         * 可能很小甚至为 0；pre-scroll 在内容滚动之前触发，拿的是完整位移，更可靠。
+         * 两条路都接上，任一条有 dy 就能驱动底栏。
+         */
+        override fun onNestedPreScroll(
+            coordinatorLayout: CoordinatorLayout,
+            child: BottomAppBar,
+            target: View,
+            dx: Int,
+            dy: Int,
+            consumed: IntArray,
+            type: Int,
+        ) {
+            handleScroll(child, dy)
         }
 
         override fun onNestedScroll(
@@ -129,14 +188,7 @@ class StatsBar @JvmOverloads constructor(
             dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int,
             type: Int, consumed: IntArray,
         ) {
-            if (!getAllowShow()) return
-            val dy = dyConsumed + dyUnconsumed
-            when {
-                // 手指上滑（内容上移）→ 收起
-                dy > 0 -> moveTo(child, hiddenOffset(child), 175L, true)
-                // 手指下滑 → 抬起
-                dy < 0 -> moveTo(child, 0f, 225L, false)
-            }
+            handleScroll(child, dyConsumed + dyUnconsumed)
         }
 
         override fun slideUp(child: BottomAppBar) {
