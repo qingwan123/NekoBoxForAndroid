@@ -33,6 +33,31 @@ class UrlTest {
         onResult: suspend (ProxyEntity, Int) -> Unit,
     ) {
         if (profiles.isEmpty()) return
+
+        // 已经连接代理时不能新建测速实例：新实例发出的 socket 会被运行中的 tun 捕获，
+        // 测速必然超时（用户看到的就是「连接代理后没法测速」）。
+        // 直接复用主实例的 outbound 测，测的就是当前代理本身。
+        if (DataStore.serviceState.connected) {
+            val semaphore = Semaphore(concurrency.coerceAtLeast(1))
+            coroutineScope {
+                profiles.map { profile ->
+                    async(Dispatchers.IO) {
+                        semaphore.withPermit {
+                            val latency = try {
+                                // 主实例里节点的 outbound tag 是 c-<chainId>-<profileId>
+                                Libcore.urlTestTagMain("c-${profile.id}-${profile.id}", link, timeout)
+                            } catch (e: Exception) {
+                                Logs.w(e)
+                                -1
+                            }
+                            onResult(profile, latency)
+                        }
+                    }
+                }.awaitAll()
+            }
+            return
+        }
+
         val instance = TestInstance(profiles.first(), link, timeout, testAll = profiles)
         instance.use {
             it.init()

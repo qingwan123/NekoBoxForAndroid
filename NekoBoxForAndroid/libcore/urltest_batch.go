@@ -110,3 +110,15 @@ func UrlTestTag(instance *BoxInstance, tag string, link string, timeout int32) (
 	}
 	return result
 }
+// UrlTestTagMain 在**正在运行的主实例**里测一个 outbound（-1 表示失败或未启动）。
+//
+// 连接代理时不能新建测速实例：新实例的 socket 会被自己的 tun 捕获，测速必然超时。
+// 这里直接复用主实例的 outbound 拨号，测的就是当前代理本身。
+//
+//export UrlTestTagMain
+func UrlTestTagMain(tag string, link string, timeout int32) int32 {
+	if mainInstance == nil {
+		return -1
+	}
+	return UrlTestTag(mainInstance, tag, link, timeout)
+}
