@@ -56,6 +56,10 @@ class MainActivity : ThemedActivity(),
     NavigationView.OnNavigationItemSelectedListener {
 
     lateinit var binding: LayoutMainBinding
+
+    // 当前页面打开的时刻（uptimeMillis），needReload() 用它过滤页面初始化期间
+    // 由 Preference 绑定 / 规则回填引起的假提示
+    var fragmentOpenedAt = 0L
     lateinit var navigation: NavigationView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -314,6 +318,9 @@ class MainActivity : ThemedActivity(),
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
+        // 记录页面打开时刻：页面刚创建时 Preference 绑定、规则列表回填等都会
+        // 回调 change listener，那不是用户改动，needReload() 会据此忽略。
+        fragmentOpenedAt = android.os.SystemClock.elapsedRealtime()
         if (fragment is ConfigurationFragment) {
             binding.stats.allowShow = true
             // 底栏默认是收起的，切回节点页时要主动放出来（已连接的情况下）
