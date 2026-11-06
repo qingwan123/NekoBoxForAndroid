@@ -853,10 +853,8 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             // 优先走批量测速：所有节点共用一次内核启动，按 outbound tag 并发拨号，
             // 每测完一个就刷新弹窗（和旧版一样的流式体验，但省掉 N 次内核初始化）。
-            var batchOk = false
             if (profilesList.isNotEmpty()) {
                 try {
-                    var tested = 0
                     UrlTest().doTestAll(
                         profilesList,
                         DataStore.connectionTestConcurrent,
@@ -871,39 +869,18 @@ class ConfigurationFragment @JvmOverloads constructor(
                             profile.ping = latency
                         }
                         test.update(profile)
-                        tested++
                     }
-                    batchOk = tested > 0
                 } catch (e: Exception) {
+                    // 不要回退到「UI 进程逐节点测速」：UI 进程无法 protect socket，
+                    // 连接代理时那里的每个实例都会被自己的 tun 吞掉，全部瞬间超时。
+                    // 直接把失败原因写进每一行，让用户看到真实错误。
                     Logs.w(e)
-                    Logs.d("batch url test failed, falling back to per-node")
-                }
-            }
-
-            if (!batchOk) {
-                val profiles = ConcurrentLinkedQueue(profilesList)
-                repeat(DataStore.connectionTestConcurrent) {
-                    testJobs.add(launch(Dispatchers.IO) {
-                        val urlTest = UrlTest() // note: this is NOT in bg process
-                        while (isActive) {
-                            val profile = profiles.poll() ?: break
-                            profile.status = 0
-
-                            try {
-                                val result = urlTest.doTest(profile)
-                                profile.status = 1
-                                profile.ping = result
-                            } catch (e: PluginManager.PluginNotFoundException) {
-                                profile.status = 2
-                                profile.error = e.readableMessage
-                            } catch (e: Exception) {
-                                profile.status = 3
-                                profile.error = e.readableMessage
-                            }
-
-                            test.update(profile)
-                        }
-                    })
+                    val reason = "batch failed: ${e.message ?: e}"
+                    profilesList.forEach { profile ->
+                        profile.status = 3
+                        profile.error = reason
+                        test.update(profile)
+                    }
                 }
                 testJobs.joinAll()
             }
