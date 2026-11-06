@@ -11,7 +11,13 @@ import (
 )
 
 func DialContext(ctx context.Context, box *box.Box, tracker adapter.ConnectionTracker, network, addr string) (net.Conn, error) {
-	defOutboundTag := box.Outbound().Default().Tag()
+	// 默认出口（outbounds[0]）在 NekoBox 生成的配置里是 direct，
+	// 直接用它测速等于走直连 —— 连接代理后底栏测速失败就是这个原因。
+	// 优先用 selector（tag 固定为 "proxy"），没有才退回默认出口。
+	defOutboundTag := "proxy"
+	if _, ok := box.Outbound().Outbound(defOutboundTag); !ok {
+		defOutboundTag = box.Outbound().Default().Tag()
+	}
 	conn, err := dialer.NewDetour(box.Outbound(), defOutboundTag, true).DialContext(ctx, network, metadata.ParseSocksaddr(addr))
 	if err != nil {
 		return nil, err

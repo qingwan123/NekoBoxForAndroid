@@ -83,7 +83,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .subText(SagerNet.appVersionNameForDisplay)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
-                                        "https://github.com/MatsuriDayo/NekoBoxForAndroid/releases"
+                                        "https://github.com/qingwan123/NekoBoxForAndroid/releases"
                                     )
                                 }
                                 .build())
@@ -183,7 +183,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .text(R.string.github)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(
-                                        "https://github.com/MatsuriDayo/NekoBoxForAndroid"
+                                        "https://github.com/qingwan123/NekoBoxForAndroid"
 
                                     )
                                 }
@@ -220,14 +220,15 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                     }
                     val response = client.newRequest().apply {
                         if (checkPreview) {
-                            setURL("https://api.github.com/repos/MatsuriDayo/NekoBoxForAndroid/releases/tags/preview")
+                            setURL("https://api.github.com/repos/qingwan123/NekoBoxForAndroid/releases/tags/preview")
                         } else {
-                            setURL("https://api.github.com/repos/MatsuriDayo/NekoBoxForAndroid/releases/latest")
+                            setURL("https://api.github.com/repos/qingwan123/NekoBoxForAndroid/releases/latest")
                         }
                     }.execute()
                     val release = JSONObject(Util.getStringBox(response.contentString))
                     val releaseName = release.getString("name")
                     val releaseUrl = release.getString("html_url")
+                    val releaseTag = release.optString("tag_name")
                     var haveUpdate = releaseName.isNotBlank()
                     haveUpdate = if (isPreview) {
                         if (checkPreview) {
@@ -237,11 +238,10 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                             haveUpdate && releaseName != BuildConfig.VERSION_NAME
                         }
                     } else {
-                        // User: 1.4.0 Preview: pre-1.4.0 -> No update
-                        // User: 1.4.0 Preview: pre-1.4.1 -> Update
-                        // User: 1.4.0 Stable: 1.4.0 -> No update
-                        // User: 1.4.0 Stable: 1.4.1 -> Update
-                        haveUpdate && !releaseName.contains(BuildConfig.VERSION_NAME)
+                        // 本仓库的 tag 形如 v1.4.2-10：同一基础版本号下的构建属于同一条线，
+                        // 只有基础版本号变了才算「有新版本」，避免同一版本反复提示。
+                        val currentTag = "v" + BuildConfig.VERSION_NAME
+                        haveUpdate && !releaseTag.startsWith(currentTag)
                     }
                     runOnMainDispatcher {
                         if (haveUpdate) {
