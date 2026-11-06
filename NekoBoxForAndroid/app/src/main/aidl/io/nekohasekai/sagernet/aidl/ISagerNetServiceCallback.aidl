@@ -9,4 +9,6 @@ oneway interface ISagerNetServiceCallback {
   void cbSpeedUpdate(in SpeedDisplayData stats);
   void cbTrafficUpdate(in TrafficData stats);
   void cbSelectorUpdate(long id);
+  void cbUrlTestResult(long profileId, int latency, String error);
+  void cbUrlTestFinish();
 }

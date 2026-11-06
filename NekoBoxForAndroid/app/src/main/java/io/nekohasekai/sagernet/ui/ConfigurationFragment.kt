@@ -860,6 +860,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     UrlTest().doTestAll(
                         profilesList,
                         DataStore.connectionTestConcurrent,
+                        requireActivity() as MainActivity,
                     ) { profile, latency, error ->
                         profile.status = 0
                         if (latency < 0) {

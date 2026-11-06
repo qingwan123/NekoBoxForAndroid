@@ -42,7 +42,9 @@ class SagerConnection(
 
         fun cbSpeedUpdate(stats: SpeedDisplayData) {}
         fun cbTrafficUpdate(data: TrafficData) {}
-        fun cbSelectorUpdate(id: Long) {}
+        fun cbSelectorUpdate(id: Long) {}
+        fun cbUrlTestResult(profileId: Long, latency: Int, error: String) {}
+        fun cbUrlTestFinish() {}
 
         fun stateChanged(state: BaseService.State, profileName: String?, msg: String?)
 
@@ -90,6 +92,20 @@ class SagerConnection(
             val callback = callback ?: return
             runOnMainDispatcher {
                 callback.cbSelectorUpdate(id)
+            }
+        }
+
+        override fun cbUrlTestResult(profileId: Long, latency: Int, error: String) {
+            val callback = callback ?: return
+            runOnMainDispatcher {
+                callback.cbUrlTestResult(profileId, latency, error)
+            }
+        }
+
+        override fun cbUrlTestFinish() {
+            val callback = callback ?: return
+            runOnMainDispatcher {
+                callback.cbUrlTestFinish()
             }
         }
 

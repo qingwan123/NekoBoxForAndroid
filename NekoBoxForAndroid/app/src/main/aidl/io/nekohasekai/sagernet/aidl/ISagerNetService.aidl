@@ -11,4 +11,5 @@ interface ISagerNetService {
 
   int urlTest();
   int urlTestByProfile(long profileId, String link, int timeout);
+  void urlTestAll(String idsJson, String link, int timeout, int concurrency);
 }

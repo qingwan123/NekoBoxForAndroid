@@ -151,3 +151,25 @@ func UrlTestNodeMain(profileId int64, link string, timeout int32) int32 {
 	}
 	return UrlTestTag(mainInstance, target, link, timeout)
 }
+// UrlTestTagResult 与 UrlTestTag 相同，但返回 JSON：{"latency":n} 或 {"error":"..."}。
+// 用它可以看清「连接代理后全部超时」到底是 tag 不对、拨号被拒、还是真的超时。
+//
+//export UrlTestTagResult
+func UrlTestTagResult(instance *BoxInstance, tag string, link string, timeout int32) string {
+	if instance == nil || instance.Box == nil {
+		return `{"error":"instance not started"}`
+	}
+	if _, ok := instance.Box.Outbound().Outbound(tag); !ok {
+		return fmt.Sprintf(`{"error":"no such outbound: %s"}`, tag)
+	}
+	var tracker adapter.ConnectionTracker
+	if instance.v2api != nil {
+		tracker = instance.v2api.StatsService()
+	}
+	client := boxapi.CreateProxyHttpClientWithTag(instance.Box, tracker, tag)
+	result, err := speedtest.UrlTest(client, link, timeout, speedtest.UrlTestStandard_RTT)
+	if err != nil {
+		return fmt.Sprintf(`{"error":%q}`, err.Error())
+	}
+	return fmt.Sprintf(`{"latency":%d}`, result)
+}

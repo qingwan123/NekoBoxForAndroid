@@ -13,17 +13,22 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
+import io.nekohasekai.sagernet.bg.proto.TestInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
+import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
+import org.json.JSONObject
 import java.net.UnknownHostException
 
 class BaseService {
@@ -137,6 +142,61 @@ class BaseService {
         override fun unregisterCallback(cb: ISagerNetServiceCallback) {
             callbackIdMap.remove(cb)
             callbacks.unregister(cb)
+        }
+
+        /**
+         * 批量测速：在 **bg 进程**里跑，因此 socket 能走 VpnService.protect。
+         * UI 进程创建的实例没法 protect（protect_path 走 unix socket，跨进程不可用），
+         * 连接代理后它的 socket 会被自己的 tun 捕获 —— 那就是「连接后测速全红」。
+         */
+        override fun urlTestAll(idsJson: String, link: String, timeout: Int, concurrency: Int) {
+            launch(Dispatchers.IO) {
+                try {
+                    val ids = Gson().fromJson(idsJson, Array<Long>::class.java)?.toList() ?: emptyList()
+                    if (ids.isEmpty()) return@launch
+                    val profiles = SagerDatabase.proxyDao.getEntities(ids)
+                    if (profiles.isEmpty()) return@launch
+                    val instance = TestInstance(profiles.first(), link, timeout, testAll = profiles)
+                    instance.use {
+                        it.init()
+                        it.launch()
+                        val semaphore = Semaphore(concurrency.coerceAtLeast(1))
+                        coroutineScope {
+                            profiles.map { profile ->
+                                async(Dispatchers.IO) {
+                                    semaphore.withPermit {
+                                        val tag = it.config.profileTagMap[profile.id]
+                                        var latency = -1
+                                        var error = ""
+                                        if (tag.isNullOrBlank()) {
+                                            error = "no outbound for profile ${profile.id}"
+                                        } else {
+                                            try {
+                                                val json = Libcore.urlTestTagResult(it.box, tag, link, timeout)
+                                                val obj = JSONObject(json)
+                                                if (obj.has("error")) {
+                                                    error = obj.optString("error")
+                                                } else {
+                                                    latency = obj.optInt("latency", -1)
+                                                    if (latency < 0) error = "timeout"
+                                                }
+                                            } catch (e: Exception) {
+                                                error = e.message ?: e.toString()
+                                            }
+                                        }
+                                        if (error.isNotEmpty()) Logs.w("url test $tag: $error")
+                                        broadcast { cb -> cb.cbUrlTestResult(profile.id, latency, error) }
+                                    }
+                                }
+                            }.awaitAll()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logs.w(e)
+                } finally {
+                    broadcast { it.cbUrlTestFinish() }
+                }
+            }
         }
 
         override fun urlTestByProfile(profileId: Long, link: String, timeout: Int): Int {

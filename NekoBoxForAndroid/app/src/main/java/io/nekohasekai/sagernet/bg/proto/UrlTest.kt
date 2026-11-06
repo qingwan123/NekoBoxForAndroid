@@ -1,15 +1,12 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import com.google.gson.Gson
+import io.nekohasekai.sagernet.ui.MainActivity
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.ktx.Logs
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import libcore.Libcore
 
 class UrlTest {
 
@@ -21,50 +18,37 @@ class UrlTest {
     }
 
     /**
-     * 批量测速（流式）：所有节点共用**一次**内核启动，按 outbound tag 并发拨号，
-     * 每测完一个立即回调 onResult，调用方可以即时刷新那一行。
+     * 批量测速（流式）：**交给 bg 进程执行**。
      *
-     * 旧实现是「每个节点各起一个内核」，而 1.15 内核单次启动比 1.14 更重，
-     * 于是节点一多就明显变慢。
+     * 必须放在 bg 进程：只有那里 AutoDetectInterfaceControl 会直接调
+     * VpnService.protect；UI 进程走的是 protect_path unix socket，跨进程连不上
+     * （错误还被忽略），于是连接代理时测速实例的 socket 全被自己的 tun 捕获，
+     * 表现出来就是「一点测速，所有节点瞬间超时」。
      */
     suspend fun doTestAll(
         profiles: List<ProxyEntity>,
         concurrency: Int,
-        onResult: suspend (ProxyEntity, Int, String?) -> Unit,
+        activity: MainActivity,
+        onResult: (ProxyEntity, Int, String?) -> Unit,
     ) {
         if (profiles.isEmpty()) return
-
-        // 必须新建一个「包含全部节点」的实例：主实例的配置只包含当前连接的节点
-        // （ConfigBuilder 只有 selector 分组才会把所有节点写进去），拿主实例测其他
-        // 节点只会 tag 查不到、瞬间全红。
-        val instance = TestInstance(profiles.first(), link, timeout, testAll = profiles)
-        instance.use {
-            it.init()
-            it.launch()
-            val semaphore = Semaphore(concurrency.coerceAtLeast(1))
-            coroutineScope {
-                profiles.map { profile ->
-                    async(Dispatchers.IO) {
-                        semaphore.withPermit {
-                            val tag = it.config.profileTagMap[profile.id]
-                            var latency = -1
-                            var error: String? = null
-                            if (tag.isNullOrBlank()) {
-                                error = "no outbound for profile ${profile.id}"
-                                Logs.w("url test: $error")
-                            } else {
-                                try {
-                                    latency = Libcore.urlTestTag(it.box, tag, link, timeout)
-                                    if (latency < 0) error = "timeout"
-                                } catch (e: Exception) {
-                                    error = e.message ?: e.toString()
-                                    Logs.w("url test $tag: ${e.message ?: e}")
-                                }
-                            }
-                            onResult(profile, latency, error)
-                        }
-                    }
-                }.awaitAll()
+        val byId = profiles.associateBy { it.id }
+        val idsJson = Gson().toJson(profiles.map { it.id })
+        suspendCoroutine<Unit> { cont ->
+            activity.urlTestReceiver = { id, latency, error ->
+                byId[id]?.let { onResult(it, latency, error.ifEmpty { null }) }
+            }
+            activity.urlTestFinishReceiver = {
+                activity.urlTestReceiver = null
+                activity.urlTestFinishReceiver = null
+                cont.resume(Unit)
+            }
+            try {
+                activity.urlTestAll(idsJson, link, timeout, concurrency)
+            } catch (e: Exception) {
+                activity.urlTestReceiver = null
+                activity.urlTestFinishReceiver = null
+                cont.resumeWithException(e)
             }
         }
     }
