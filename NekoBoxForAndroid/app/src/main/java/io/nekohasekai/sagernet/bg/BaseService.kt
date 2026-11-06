@@ -184,7 +184,16 @@ class BaseService {
                                                 error = e.message ?: e.toString()
                                             }
                                         }
-                                        if (error.isNotEmpty()) Logs.w("url test $tag: $error")
+                                        if (error.isNotEmpty()) {
+                                            // 附带一次裸 TCP 拨号的结果，便于判断是不是 tun 拦了 socket
+                                            val direct = try {
+                                                Libcore.diagDial(profile.displayAddress(), 3000)
+                                            } catch (e: Exception) {
+                                                "diag failed: ${e.message}"
+                                            }
+                                            error = "$error | direct: $direct"
+                                            Logs.w("url test $tag: $error")
+                                        }
                                         broadcast { cb -> cb.cbUrlTestResult(profile.id, latency, error) }
                                     }
                                 }

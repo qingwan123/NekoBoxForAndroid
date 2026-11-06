@@ -1,6 +1,8 @@
 package libcore
 
 import (
+	"time"
+	"net"
 	"strings"
 	"log"
 	"encoding/json"
@@ -172,4 +174,17 @@ func UrlTestTagResult(instance *BoxInstance, tag string, link string, timeout in
 		return fmt.Sprintf(`{"error":%q}`, err.Error())
 	}
 	return fmt.Sprintf(`{"latency":%d}`, result)
+}
+// DiagDial 不经过 sing-box，直接用 Go 的 net.DialTimeout 连一次。
+// 用来区分「socket 被自己的 tun 拦了」和「sing-box 内部拨号有问题」：
+// 两者都失败 => tun 拦截；只有 sing-box 失败 => 配置问题。
+//
+//export DiagDial
+func DiagDial(address string, timeoutMs int32) string {
+	conn, err := net.DialTimeout("tcp", address, time.Duration(timeoutMs)*time.Millisecond)
+	if err != nil {
+		return err.Error()
+	}
+	_ = conn.Close()
+	return "ok"
 }
