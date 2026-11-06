@@ -1213,6 +1213,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                     override fun onDown(e: MotionEvent): Boolean = true
 
                     override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                        // 未连接代理时底栏固定：不响应上滑/下滑
+                        if (!DataStore.serviceState.connected) return false
                         // dy > 0：手指上滑；dy < 0：手指下滑
                         accumulated += dy
                         if (accumulated > threshold) {
