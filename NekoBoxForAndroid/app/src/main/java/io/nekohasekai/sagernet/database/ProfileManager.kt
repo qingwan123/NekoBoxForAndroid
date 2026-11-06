@@ -185,6 +185,9 @@ object ProfileManager {
         var rules = SagerDatabase.rulesDao.allRules()
         if (rules.isEmpty() && !DataStore.rulesFirstCreate) {
             DataStore.rulesFirstCreate = true
+            // 这些是初始化内置规则，不是用户操作：不通知 RuleListener，
+            // 否则路由页首次打开就会因为 onAdd → needReload() 弹出重载提示。
+            // getRules() 的调用方拿返回列表自己刷新即可。
             createRule(
                 RuleEntity(
                     name = app.getString(R.string.route_opt_block_quic),
@@ -192,7 +195,7 @@ object ProfileManager {
                     port = "443",
                     network = "udp",
                     outbound = -2
-                )
+                ), false
             )
             createRule(
                 RuleEntity(
@@ -200,7 +203,7 @@ object ProfileManager {
                     enabled = true,
                     domains = "geosite:category-ads-all",
                     outbound = -2
-                )
+                ), false
             )
             val fuckedCountry = mutableListOf("cn:中国")
             if (Locale.getDefault().country != Locale.CHINA.country) {
@@ -240,6 +243,7 @@ object ProfileManager {
         }
         // 旧版本创建的这五条内置规则默认是关闭的。这里一次性把它们打开，
         // 之后完全尊重用户自己的开关状态。
+        // 迁移同样属于初始化：只改库，不通知 RuleListener（否则进路由页就弹重载提示）。
         val rulePrefs = app.getSharedPreferences("route_rules", android.content.Context.MODE_PRIVATE)
         if (!rulePrefs.getBoolean("builtin_enabled_v1", false)) {
             rulePrefs.edit().putBoolean("builtin_enabled_v1", true).apply()
@@ -250,7 +254,6 @@ object ProfileManager {
                     SagerDatabase.rulesDao.updateRule(it)
                 }
                 rules = SagerDatabase.rulesDao.allRules()
-                targets.forEach { rule -> ruleIterator { onUpdated(rule) } }
             }
         }
         return rules
