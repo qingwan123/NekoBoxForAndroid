@@ -10,10 +10,13 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.format.Formatter
 import android.text.style.ForegroundColorSpan
+import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -1199,6 +1202,34 @@ class ConfigurationFragment @JvmOverloads constructor(
             GroupManager.addListener(adapter!!)
             configurationListView.adapter = adapter
             configurationListView.setItemViewCacheSize(20)
+
+            // 底栏收/起由手指位移驱动：上滑收起、下滑弹出。
+            // 不看列表是否真的滚动，所以节点少、内容不满一屏时一样有效。
+            val statsBar = activity?.findViewById<io.nekohasekai.sagernet.widget.StatsBar>(R.id.stats)
+            if (statsBar != null) {
+                val threshold = ViewConfiguration.get(view.context).scaledTouchSlop.toFloat()
+                var accumulated = 0f
+                val detector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(e: MotionEvent): Boolean = true
+
+                    override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                        // dy > 0：手指上滑；dy < 0：手指下滑
+                        accumulated += dy
+                        if (accumulated > threshold) {
+                            statsBar.performHide()
+                            accumulated = 0f
+                        } else if (accumulated < -threshold) {
+                            statsBar.performShow()
+                            accumulated = 0f
+                        }
+                        return false
+                    }
+                })
+                configurationListView.setOnTouchListener { _, event ->
+                    detector.onTouchEvent(event)
+                    false // 不消费事件，列表照常滚动
+                }
+            }
 
             if (!select) {
 

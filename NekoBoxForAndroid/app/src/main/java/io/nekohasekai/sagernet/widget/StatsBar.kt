@@ -93,13 +93,11 @@ class StatsBar @JvmOverloads constructor(
     }
 
     /**
-     * 收/起由这里自己管，不再依赖 Material 的 HideBottomViewOnScrollBehavior。
+     * 底栏收/起改由**手势**驱动（见 ConfigurationFragment 里的滑动监听），
+     * 不再参与列表的嵌套滚动。
      *
-     * 那个实现用内部 currentState 做去重：状态在动画开始前就被改成目标值，而
-     * currentAnimator.cancel() 会让位置停在半途 —— 快速连续滚动时状态与位置脱节，
-     * 之后 rolling 方向与状态对不上就整体失效（「列表划快了底栏就不动了」）。
-     *
-     * 这里只用 targetY 一个真相：方向变了才换动画，同向连续滚动直接忽略。
+     * 这样即使列表内容不满一屏（节点少的分组）也能正常收/起 —— 原来的实现
+     * 依赖滚动事件，那种情况下根本没有滚动量，底栏就永远不动。
      */
     class YourBehavior(val getAllowShow: () -> Boolean) : Behavior() {
 
@@ -107,19 +105,7 @@ class StatsBar @JvmOverloads constructor(
         private var animator: ViewPropertyAnimator? = null
         private var animating = false
 
-        private fun hiddenOffset(child: View): Float {
-            val lp = child.layoutParams as? ViewGroup.MarginLayoutParams
-            return (child.height + (lp?.bottomMargin ?: 0)).toFloat()
-        }
-
-        /**
-         * 绕开 `BottomAppBar.Behavior` 的 hideOnScroll 门控。
-         *
-         * 它内部是 `getHideOnScroll() && super.onStartNestedScroll(...)`，而 hideOnScroll
-         * 只在 StatsBar.changeState() 里赋值 —— 服务已连接时才创建视图、或状态回调漏掉的
-         * 情况下这个字段可能是 false，于是底栏**根本收不到**后面的 pre/scroll 回调，
-         * 表现为怎么划都不动、且和快慢无关。这里直接用 allowShow 判断，不再依赖那个字段。
-         */
+        // 不接收列表滚动：收/起只由手势触发
         override fun onStartNestedScroll(
             coordinatorLayout: CoordinatorLayout,
             child: BottomAppBar,
@@ -127,18 +113,14 @@ class StatsBar @JvmOverloads constructor(
             target: View,
             axes: Int,
             type: Int,
-        ): Boolean {
-            if (!getAllowShow()) return false
-            if (axes != androidx.core.view.ViewCompat.SCROLL_AXIS_VERTICAL) return false
-            // 列表内容不足一屏时根本没有滚动量：一旦把底栏收起来，就没有「下滑」
-            // 能再把它抬回来，看起来就是彻底不响应。节点少的分组最容易踩到。
-            if (!target.canScrollVertically(-1) && !target.canScrollVertically(1)) return false
-            return true
+        ): Boolean = false
+
+        private fun hiddenOffset(child: View): Float {
+            val lp = child.layoutParams as? ViewGroup.MarginLayoutParams
+            return (child.height + (lp?.bottomMargin ?: 0)).toFloat()
         }
 
         private fun moveTo(child: View, y: Float, duration: Long, accelerate: Boolean) {
-            // 判据是实际位置 + 动画是否还在跑，而不是一个可能脱节的内部状态：
-            // 已经到位就不动；同向且动画仍在跑就不打断；其余情况（被打断、方向相反）一律纠正。
             if (kotlin.math.abs(child.translationY - y) < 1f) {
                 targetY = y
                 return
@@ -161,41 +143,6 @@ class StatsBar @JvmOverloads constructor(
                 .also { it.start() }
         }
 
-        private fun handleScroll(child: BottomAppBar, dy: Int) {
-            if (!getAllowShow() || dy == 0) return
-            when {
-                // 手指上滑（内容上移）→ 收起
-                dy > 0 -> moveTo(child, hiddenOffset(child), 175L, true)
-                // 手指下滑 → 抬起
-                dy < 0 -> moveTo(child, 0f, 225L, false)
-            }
-        }
-
-        /**
-         * 快速划动时 RecyclerView 往往把 dy 全部消费掉，onNestedScroll 里拿到的增量
-         * 可能很小甚至为 0；pre-scroll 在内容滚动之前触发，拿的是完整位移，更可靠。
-         * 两条路都接上，任一条有 dy 就能驱动底栏。
-         */
-        override fun onNestedPreScroll(
-            coordinatorLayout: CoordinatorLayout,
-            child: BottomAppBar,
-            target: View,
-            dx: Int,
-            dy: Int,
-            consumed: IntArray,
-            type: Int,
-        ) {
-            handleScroll(child, dy)
-        }
-
-        override fun onNestedScroll(
-            coordinatorLayout: CoordinatorLayout, child: BottomAppBar, target: View,
-            dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int,
-            type: Int, consumed: IntArray,
-        ) {
-            handleScroll(child, dyConsumed + dyUnconsumed)
-        }
-
         override fun slideUp(child: BottomAppBar) {
             if (!getAllowShow()) return
             moveTo(child, 0f, 225L, false)
@@ -204,32 +151,6 @@ class StatsBar @JvmOverloads constructor(
         override fun slideDown(child: BottomAppBar) {
             if (!getAllowShow()) return
             moveTo(child, hiddenOffset(child), 175L, true)
-        }
-
-        override fun onStopNestedScroll(
-            coordinatorLayout: CoordinatorLayout,
-            child: BottomAppBar,
-            target: View,
-            type: Int,
-        ) {
-            if (!getAllowShow()) return
-            // 列表已经不能滚动（内容不满一屏 / 缩到只剩几个节点）→ 底栏必须留在展开状态，
-            // 否则没有下滑能把它抬回来
-            if (!target.canScrollVertically(-1) && !target.canScrollVertically(1)) {
-                slideUp(child)
-                return
-            }
-            // 动画被打断时停在中途：按离哪端近归位，并把 targetY 校正回来
-            val hidden = hiddenOffset(child)
-            val y = child.translationY
-            if (y > 1f && y < hidden - 1f) {
-                targetY = if (y > hidden / 2f) hidden else 0f
-                animator?.cancel()
-                animator = child.animate()
-                    .translationY(targetY)
-                    .setDuration(120L)
-                    .also { it.start() }
-            }
         }
     }
 
