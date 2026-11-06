@@ -34,7 +34,32 @@ class StatsBar @JvmOverloads constructor(
     private lateinit var rxText: TextView
     private lateinit var behavior: YourBehavior
 
-    var allowShow = true
+    // 默认隐藏：非节点页（工具/设置/分组…）不该出现速度栏。
+    // 之前默认 true，Activity 重建（比如工具页导入备份后重启）时底栏会自己冒出来。
+    var allowShow = false
+        set(value) {
+            field = value
+            if (!value) hideImmediately()
+        }
+
+    private fun hiddenOffset(): Float {
+        val lp = layoutParams as? ViewGroup.MarginLayoutParams
+        return (height + (lp?.bottomMargin ?: 0)).toFloat()
+    }
+
+    private fun hideImmediately() {
+        if (height == 0) return // 还没布局，交给 onLayout 兜底
+        clearAnimation()
+        translationY = hiddenOffset()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        // 首次布局时如果本就不该显示，直接收起来，避免闪一下
+        if (!allowShow && height > 0 && translationY == 0f) {
+            translationY = hiddenOffset()
+        }
+    }
 
     private companion object {
         // 连接后等待服务稳定再自动测速(ms)

@@ -316,6 +316,8 @@ class MainActivity : ThemedActivity(),
     fun displayFragment(fragment: ToolbarFragment) {
         if (fragment is ConfigurationFragment) {
             binding.stats.allowShow = true
+            // 底栏默认是收起的，切回节点页时要主动放出来（已连接的情况下）
+            if (DataStore.serviceState.connected) binding.stats.performShow()
             binding.fab.show()
         } else {
             // 非节点页都没有节点列表，速度栏在那里没有意义
