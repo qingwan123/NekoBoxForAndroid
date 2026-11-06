@@ -317,9 +317,8 @@ class MainActivity : ThemedActivity(),
         if (fragment is ConfigurationFragment) {
             binding.stats.allowShow = true
             binding.fab.show()
-        } else if (fragment is GroupFragment || !DataStore.showBottomBar) {
-            // 分组页（添加/管理订阅分组的地方）不需要速度栏，即使开了
-            // 「Show bottom bar like SagerNet」也隐藏
+        } else {
+            // 非节点页都没有节点列表，速度栏在那里没有意义
             binding.stats.allowShow = false
             binding.stats.performHide()
             binding.fab.hide()
