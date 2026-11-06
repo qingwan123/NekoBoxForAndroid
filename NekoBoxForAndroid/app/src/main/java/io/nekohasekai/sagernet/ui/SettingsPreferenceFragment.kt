@@ -41,7 +41,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
-        listView.post { preferencesReady = true }
     }
 
     private val reloadListener = Preference.OnPreferenceChangeListener { pref, newValue ->
@@ -201,12 +200,19 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     override fun onResume() {
         super.onResume()
 
+        // 每次进入页面先关闸门：Preference 绑定、DropDownPreference 的 setSelection、
+        // 下面几行直接赋值，都会回调 change listener —— 那都不是用户改动，
+        // 不该弹「重载代理服务以应用修改」。等布局真正完成（两帧）再放开。
+        preferencesReady = false
+
         if (::isProxyApps.isInitialized) {
             isProxyApps.isChecked = DataStore.proxyApps
         }
         if (::globalCustomConfig.isInitialized) {
             globalCustomConfig.notifyChanged()
         }
+
+        listView.post { listView.post { preferencesReady = true } }
     }
 
 }

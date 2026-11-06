@@ -287,6 +287,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 itemView.setOnClickListener {
                     enableSwitch.performClick()
                 }
+                // 先摘掉上一次绑定的 listener：ViewHolder 会被复用，
+                // 直接设 isChecked 会触发旧 listener，把「重新绑定」当成用户改动，
+                // 于是刚进路由页就弹「重载代理服务以应用修改」。
+                enableSwitch.setOnCheckedChangeListener(null)
                 enableSwitch.isChecked = rule.enabled
                 enableSwitch.setOnCheckedChangeListener { _, isChecked ->
                     runOnDefaultDispatcher {
