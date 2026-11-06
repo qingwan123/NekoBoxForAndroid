@@ -1488,6 +1488,17 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationIdList.addAll(newProfileIds)
                     notifyDataSetChanged()
 
+                    // 内容不满一屏时（节点少的分组），底栏不能停在收起状态：
+                    // 没有可滚动的距离，就再也没法把它抬回来
+                    configurationListView.post {
+                        val canScroll = configurationListView.canScrollVertically(-1) ||
+                            configurationListView.canScrollVertically(1)
+                        if (!canScroll) {
+                            activity?.findViewById<io.nekohasekai.sagernet.widget.StatsBar>(R.id.stats)
+                                ?.performShow()
+                        }
+                    }
+
                     if (selectedProfileIndex != -1) {
                         configurationListView.scrollTo(selectedProfileIndex, true)
                     } else if (newProfiles.isNotEmpty()) {

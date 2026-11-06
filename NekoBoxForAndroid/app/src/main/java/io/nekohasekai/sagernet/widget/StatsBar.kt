@@ -128,7 +128,12 @@ class StatsBar @JvmOverloads constructor(
             axes: Int,
             type: Int,
         ): Boolean {
-            return axes == androidx.core.view.ViewCompat.SCROLL_AXIS_VERTICAL && getAllowShow()
+            if (!getAllowShow()) return false
+            if (axes != androidx.core.view.ViewCompat.SCROLL_AXIS_VERTICAL) return false
+            // 列表内容不足一屏时根本没有滚动量：一旦把底栏收起来，就没有「下滑」
+            // 能再把它抬回来，看起来就是彻底不响应。节点少的分组最容易踩到。
+            if (!target.canScrollVertically(-1) && !target.canScrollVertically(1)) return false
+            return true
         }
 
         private fun moveTo(child: View, y: Float, duration: Long, accelerate: Boolean) {
@@ -208,6 +213,12 @@ class StatsBar @JvmOverloads constructor(
             type: Int,
         ) {
             if (!getAllowShow()) return
+            // 列表已经不能滚动（内容不满一屏 / 缩到只剩几个节点）→ 底栏必须留在展开状态，
+            // 否则没有下滑能把它抬回来
+            if (!target.canScrollVertically(-1) && !target.canScrollVertically(1)) {
+                slideUp(child)
+                return
+            }
             // 动画被打断时停在中途：按离哪端近归位，并把 targetY 校正回来
             val hidden = hiddenOffset(child)
             val y = child.translationY
