@@ -52,7 +52,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             is EditTextPreference -> pref.text
             else -> null
         }
-        if (oldValue != null && oldValue == newValue?.toString()) {
+        // oldValue 为 null 说明取不到旧值（首次绑定、值还没落库），
+        // 这种回调同样不是用户改动，一律不提示。
+        if (oldValue == null || oldValue == newValue?.toString()) {
             true
         } else {
             maybeNeedReload()

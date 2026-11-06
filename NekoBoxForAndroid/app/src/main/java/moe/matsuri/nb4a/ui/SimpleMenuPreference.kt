@@ -45,7 +45,15 @@ open class SimpleMenuPreference
     private lateinit var mAdapter: SimpleMenuAdapter
 
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
+        // 父类 DropDownPreference 在绑定时会 setSelection(findIndexOfValue(mValue))，
+        // 那会回调 onItemSelected → setValue → callChangeListener。绑定不是用户操作，
+        // 但会让设置页在刚打开时误报「重载代理服务以应用修改」。
+        // 绑定期间临时摘掉 change listener，绑完再挂回去。
+        val listener = onPreferenceChangeListener
+        onPreferenceChangeListener = null
         super.onBindViewHolder(holder)
+        onPreferenceChangeListener = listener
+
         val mSpinner = holder.itemView.findViewById<Spinner>(R.id.spinner)
         mSpinner.layoutParams.width = ViewGroup.LayoutParams.WRAP_CONTENT
     }
