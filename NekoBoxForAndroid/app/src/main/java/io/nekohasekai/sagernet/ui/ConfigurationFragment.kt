@@ -860,12 +860,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                     UrlTest().doTestAll(
                         profilesList,
                         DataStore.connectionTestConcurrent,
-                        activity as? MainActivity,
-                    ) { profile, latency ->
+                    ) { profile, latency, error ->
                         profile.status = 0
                         if (latency < 0) {
                             profile.status = 3
-                            profile.error = "timeout"
+                            profile.error = error ?: "timeout"
                         } else {
                             profile.status = 1
                             profile.ping = latency

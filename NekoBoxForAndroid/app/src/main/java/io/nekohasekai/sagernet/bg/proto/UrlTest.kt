@@ -30,35 +30,13 @@ class UrlTest {
     suspend fun doTestAll(
         profiles: List<ProxyEntity>,
         concurrency: Int,
-        activity: io.nekohasekai.sagernet.ui.MainActivity? = null,
-        onResult: suspend (ProxyEntity, Int) -> Unit,
+        onResult: suspend (ProxyEntity, Int, String?) -> Unit,
     ) {
         if (profiles.isEmpty()) return
 
-        // 已经连接代理时不能新建测速实例：新实例发出的 socket 会被运行中的 tun 捕获，
-        // 测速必然超时（用户看到的就是「连接代理后没法测速」）。
-        // 直接复用主实例的 outbound 测，测的就是当前代理本身。
-        if (DataStore.serviceState.connected && activity != null) {
-            val semaphore = Semaphore(concurrency.coerceAtLeast(1))
-            coroutineScope {
-                profiles.map { profile ->
-                    async(Dispatchers.IO) {
-                        semaphore.withPermit {
-                            val latency = try {
-                                // 主实例里节点的 outbound tag 是 c-<chainId>-<profileId>
-                                activity.urlTestByProfile(profile.id, link, timeout)
-                            } catch (e: Exception) {
-                                Logs.w(e)
-                                -1
-                            }
-                            onResult(profile, latency)
-                        }
-                    }
-                }.awaitAll()
-            }
-            return
-        }
-
+        // 必须新建一个「包含全部节点」的实例：主实例的配置只包含当前连接的节点
+        // （ConfigBuilder 只有 selector 分组才会把所有节点写进去），拿主实例测其他
+        // 节点只会 tag 查不到、瞬间全红。
         val instance = TestInstance(profiles.first(), link, timeout, testAll = profiles)
         instance.use {
             it.init()
@@ -69,17 +47,21 @@ class UrlTest {
                     async(Dispatchers.IO) {
                         semaphore.withPermit {
                             val tag = it.config.profileTagMap[profile.id]
-                            val latency = if (tag.isNullOrBlank()) {
-                                -1
+                            var latency = -1
+                            var error: String? = null
+                            if (tag.isNullOrBlank()) {
+                                error = "no outbound for profile ${profile.id}"
+                                Logs.w("url test: $error")
                             } else {
                                 try {
-                                    Libcore.urlTestTag(it.box, tag, link, timeout)
+                                    latency = Libcore.urlTestTag(it.box, tag, link, timeout)
+                                    if (latency < 0) error = "timeout"
                                 } catch (e: Exception) {
-                                    Logs.w(e)
-                                    -1
+                                    error = e.message ?: e.toString()
+                                    Logs.w("url test $tag: ${e.message ?: e}")
                                 }
                             }
-                            onResult(profile, latency)
+                            onResult(profile, latency, error)
                         }
                     }
                 }.awaitAll()
