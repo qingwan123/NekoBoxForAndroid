@@ -43,6 +43,7 @@ import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPlay
 import io.nekohasekai.sagernet.ktx.isPreview
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.parseProxies
@@ -430,11 +431,16 @@ class MainActivity : ThemedActivity(),
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
+            // 这三个键只有「分应用代理」页面会改。在该页面之外收到通知，一定是
+            // 程序同步（导入备份后重建、页面初始化写回等），不是用户操作，不提示。
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
-                if (DataStore.serviceState.canStop) {
+                if (AppManagerActivity.isOpen && DataStore.serviceState.canStop) {
+                    Logs.w("storeChanged: $key -> reload prompt (app manager open)")
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
                         SagerNet.reloadService()
                     }.show()
+                } else {
+                    Logs.w("storeChanged: $key ignored (app manager closed)")
                 }
             }
         }

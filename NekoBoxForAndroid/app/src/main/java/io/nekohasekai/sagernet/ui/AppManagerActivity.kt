@@ -51,6 +51,11 @@ class AppManagerActivity : ThemedActivity() {
     companion object {
         @SuppressLint("StaticFieldLeak")
         private var instance: AppManagerActivity? = null
+
+        /** 「分应用代理」页面是否在前台 —— 只有它改动分应用设置时才需要提示重载 */
+        val isOpen: Boolean
+            get() = instance != null
+
         private const val SWITCH = "switch"
 
         private val cachedApps

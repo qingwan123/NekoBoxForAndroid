@@ -241,7 +241,7 @@ fun Fragment.startFilesForResult(
 }
 
 fun Fragment.needReload() {
-    Logs.d("needReload from ${this::class.java.simpleName}")
+    Logs.w("needReload from ${this::class.java.simpleName}")
     if (DataStore.serviceState.started) {
         snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
             SagerNet.reloadService()
