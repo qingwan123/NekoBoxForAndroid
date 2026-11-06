@@ -241,17 +241,6 @@ fun Fragment.startFilesForResult(
 }
 
 fun Fragment.needReload() {
-    val activity = activity as? MainActivity
-    // 页面刚打开的一小段时间里，Preference 绑定、DropDownPreference 的 setSelection、
-    // 规则列表回填、备份恢复后的赋值都会回调 change listener —— 那都不是用户改动。
-    // 这类误触发几乎全部发生在页面刚创建时，用一个时间窗统一挡掉。
-    if (activity != null && activity.fragmentOpenedAt > 0L) {
-        val age = android.os.SystemClock.elapsedRealtime() - activity.fragmentOpenedAt
-        if (age < 1200L) {
-            Logs.w("skip needReload: page opened ${age}ms ago (${this::class.java.simpleName})")
-            return
-        }
-    }
     Logs.d("needReload from ${this::class.java.simpleName}")
     if (DataStore.serviceState.started) {
         snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {

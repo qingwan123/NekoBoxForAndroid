@@ -32,40 +32,29 @@ open class RoomPreferenceDataStore(private val kvPairDao: KeyValuePair.Dao) :
         if (value == null) remove(key) else putLong(key, value.toLong())
 
     fun putLong(key: String, value: Long?) = if (value == null) remove(key) else putLong(key, value)
-    override fun putBoolean(key: String, value: Boolean) {
-        kvPairDao.put(KeyValuePair(key).put(value))
-        fireChangeListener(key)
+    private fun putIfChanged(pair: KeyValuePair) {
+        val previous = kvPairDao[pair.key]
+        if (previous?.valueType == pair.valueType && previous.value.contentEquals(pair.value)) return
+        kvPairDao.put(pair)
+        fireChangeListener(pair.key)
     }
 
-    override fun putFloat(key: String, value: Float) {
-        kvPairDao.put(KeyValuePair(key).put(value))
-        fireChangeListener(key)
-    }
+    override fun putBoolean(key: String, value: Boolean) = putIfChanged(KeyValuePair(key).put(value))
 
-    override fun putInt(key: String, value: Int) {
-        kvPairDao.put(KeyValuePair(key).put(value.toLong()))
-        fireChangeListener(key)
-    }
+    override fun putFloat(key: String, value: Float) = putIfChanged(KeyValuePair(key).put(value))
 
-    override fun putLong(key: String, value: Long) {
-        kvPairDao.put(KeyValuePair(key).put(value))
-        fireChangeListener(key)
-    }
+    override fun putInt(key: String, value: Int) = putIfChanged(KeyValuePair(key).put(value.toLong()))
 
-    override fun putString(key: String, value: String?) = if (value == null) remove(key) else {
-        kvPairDao.put(KeyValuePair(key).put(value))
-        fireChangeListener(key)
-    }
+    override fun putLong(key: String, value: Long) = putIfChanged(KeyValuePair(key).put(value))
+
+    override fun putString(key: String, value: String?) =
+        if (value == null) remove(key) else putIfChanged(KeyValuePair(key).put(value))
 
     override fun putStringSet(key: String, values: MutableSet<String>?) =
-        if (values == null) remove(key) else {
-            kvPairDao.put(KeyValuePair(key).put(values))
-            fireChangeListener(key)
-        }
+        if (values == null) remove(key) else putIfChanged(KeyValuePair(key).put(values))
 
     fun remove(key: String) {
-        kvPairDao.delete(key)
-        fireChangeListener(key)
+        if (kvPairDao.delete(key) > 0) fireChangeListener(key)
     }
 
     private val listeners = HashSet<OnPreferenceDataStoreChangeListener>()

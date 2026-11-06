@@ -207,9 +207,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         // 不该弹「重载代理服务以应用修改」。等布局真正完成（两帧）再放开。
         preferencesReady = false
 
-        if (::isProxyApps.isInitialized) {
-            isProxyApps.isChecked = DataStore.proxyApps
-        }
+        // 不要在 onResume 里再写 isProxyApps.isChecked：Preference 已通过
+        // DataStore 自动读取当前值。手动同步会把备份恢复后的值再次 put 回库，
+        // RoomPreferenceDataStore 会将这次程序写入通知 MainActivity，误弹 reload。
         if (::globalCustomConfig.isInitialized) {
             globalCustomConfig.notifyChanged()
         }
