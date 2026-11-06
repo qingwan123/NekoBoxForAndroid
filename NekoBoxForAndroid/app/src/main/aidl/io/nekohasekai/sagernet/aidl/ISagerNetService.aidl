@@ -10,6 +10,4 @@ interface ISagerNetService {
   oneway void unregisterCallback(in ISagerNetServiceCallback cb);
 
   int urlTest();
-  int urlTestByProfile(long profileId, String link, int timeout);
-  void urlTestAll(String idsJson, String link, int timeout, int concurrency);
 }

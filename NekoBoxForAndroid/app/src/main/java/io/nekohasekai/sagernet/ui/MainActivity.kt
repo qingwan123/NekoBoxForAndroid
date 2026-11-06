@@ -149,34 +149,12 @@ class MainActivity : ThemedActivity(),
         }
     }
 
+
     fun urlTest(): Int {
         if (!DataStore.serviceState.connected || connection.service == null) {
             error("not started")
         }
         return connection.service!!.urlTest()
-    }
-    fun urlTestByProfile(profileId: Long, link: String, timeout: Int): Int {
-        if (!DataStore.serviceState.connected || connection.service == null) {
-            error("not started")
-        }
-        return connection.service!!.urlTestByProfile(profileId, link, timeout)
-    }
-
-    /** 批量测速：在 bg 进程里执行（那里才能 VpnService.protect），结果通过回调逐条回来。 */
-    var urlTestReceiver: ((Long, Int, String) -> Unit)? = null
-    var urlTestFinishReceiver: (() -> Unit)? = null
-
-    fun urlTestAll(idsJson: String, link: String, timeout: Int, concurrency: Int) {
-        val service = connection.service ?: error("not started")
-        service.urlTestAll(idsJson, link, timeout, concurrency)
-    }
-
-    override fun cbUrlTestResult(profileId: Long, latency: Int, error: String) {
-        runOnUiThread { urlTestReceiver?.invoke(profileId, latency, error) }
-    }
-
-    override fun cbUrlTestFinish() {
-        runOnUiThread { urlTestFinishReceiver?.invoke() }
     }
 
     suspend fun importSubscription(uri: Uri) {

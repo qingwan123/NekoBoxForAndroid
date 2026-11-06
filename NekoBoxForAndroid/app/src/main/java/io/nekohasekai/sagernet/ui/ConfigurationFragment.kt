@@ -10,13 +10,10 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.format.Formatter
 import android.text.style.ForegroundColorSpan
-import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MenuItem
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -850,40 +847,32 @@ class ConfigurationFragment @JvmOverloads constructor(
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
             test.proxyN = profilesList.size
-
-            // 优先走批量测速：所有节点共用一次内核启动，按 outbound tag 并发拨号，
-            // 每测完一个就刷新弹窗（和旧版一样的流式体验，但省掉 N 次内核初始化）。
-            if (profilesList.isNotEmpty()) {
-                try {
-                    UrlTest().doTestAll(
-                        profilesList,
-                        DataStore.connectionTestConcurrent,
-                        requireActivity() as MainActivity,
-                    ) { profile, latency, error ->
+            val profiles = ConcurrentLinkedQueue(profilesList)
+            repeat(DataStore.connectionTestConcurrent) {
+                testJobs.add(launch(Dispatchers.IO) {
+                    val urlTest = UrlTest() // note: this is NOT in bg process
+                    while (isActive) {
+                        val profile = profiles.poll() ?: break
                         profile.status = 0
-                        if (latency < 0) {
-                            profile.status = 3
-                            profile.error = error ?: "timeout"
-                        } else {
+
+                        try {
+                            val result = urlTest.doTest(profile)
                             profile.status = 1
-                            profile.ping = latency
+                            profile.ping = result
+                        } catch (e: PluginManager.PluginNotFoundException) {
+                            profile.status = 2
+                            profile.error = e.readableMessage
+                        } catch (e: Exception) {
+                            profile.status = 3
+                            profile.error = e.readableMessage
                         }
+
                         test.update(profile)
                     }
-                } catch (e: Exception) {
-                    // 不要回退到「UI 进程逐节点测速」：UI 进程无法 protect socket，
-                    // 连接代理时那里的每个实例都会被自己的 tun 吞掉，全部瞬间超时。
-                    // 直接把失败原因写进每一行，让用户看到真实错误。
-                    Logs.w(e)
-                    val reason = "batch failed: ${e.message ?: e}"
-                    profilesList.forEach { profile ->
-                        profile.status = 3
-                        profile.error = reason
-                        test.update(profile)
-                    }
-                }
-                testJobs.joinAll()
+                })
             }
+
+            testJobs.joinAll()
 
             runOnMainDispatcher {
                 test.cancel()
@@ -1182,36 +1171,6 @@ class ConfigurationFragment @JvmOverloads constructor(
             configurationListView.adapter = adapter
             configurationListView.setItemViewCacheSize(20)
 
-            // 底栏收/起由手指位移驱动：上滑收起、下滑弹出。
-            // 不看列表是否真的滚动，所以节点少、内容不满一屏时一样有效。
-            val statsBar = activity?.findViewById<io.nekohasekai.sagernet.widget.StatsBar>(R.id.stats)
-            if (statsBar != null) {
-                val threshold = ViewConfiguration.get(view.context).scaledTouchSlop.toFloat()
-                var accumulated = 0f
-                val detector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
-                    override fun onDown(e: MotionEvent): Boolean = true
-
-                    override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
-                        // 未连接代理时底栏固定：不响应上滑/下滑
-                        if (!DataStore.serviceState.connected) return false
-                        // dy > 0：手指上滑；dy < 0：手指下滑
-                        accumulated += dy
-                        if (accumulated > threshold) {
-                            statsBar.performHide()
-                            accumulated = 0f
-                        } else if (accumulated < -threshold) {
-                            statsBar.performShow()
-                            accumulated = 0f
-                        }
-                        return false
-                    }
-                })
-                configurationListView.setOnTouchListener { _, event ->
-                    detector.onTouchEvent(event)
-                    false // 不消费事件，列表照常滚动
-                }
-            }
-
             if (!select) {
 
                 undoManager = UndoSnackbarManager(activity as MainActivity, adapter!!)
@@ -1499,17 +1458,6 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationIdList.clear()
                     configurationIdList.addAll(newProfileIds)
                     notifyDataSetChanged()
-
-                    // 内容不满一屏时（节点少的分组），底栏不能停在收起状态：
-                    // 没有可滚动的距离，就再也没法把它抬回来
-                    configurationListView.post {
-                        val canScroll = configurationListView.canScrollVertically(-1) ||
-                            configurationListView.canScrollVertically(1)
-                        if (!canScroll) {
-                            activity?.findViewById<io.nekohasekai.sagernet.widget.StatsBar>(R.id.stats)
-                                ?.performShow()
-                        }
-                    }
 
                     if (selectedProfileIndex != -1) {
                         configurationListView.scrollTo(selectedProfileIndex, true)
