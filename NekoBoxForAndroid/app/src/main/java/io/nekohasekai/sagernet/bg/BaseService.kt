@@ -139,6 +139,20 @@ class BaseService {
             callbacks.unregister(cb)
         }
 
+        override fun urlTestByProfile(profileId: Long, link: String, timeout: Int): Int {
+            val proxy = data?.proxy ?: error("core not started")
+            if (proxy.box == null) error("core not started")
+            // 用主实例真实的 outbound tag 映射，而不是按 id 猜 tag ——
+            // ConfigBuilder 的 tag 是 c-<chainId>-<profileId>，链式/复用时并不固定。
+            val tag = proxy.config.profileTagMap[profileId]
+                ?: error("no outbound for profile $profileId")
+            try {
+                return Libcore.urlTestTag(proxy.box, tag, link, timeout)
+            } catch (e: Exception) {
+                error(Protocols.genFriendlyMsg(e.readableMessage))
+            }
+        }
+
         override fun urlTest(): Int {
             if (data?.proxy?.box == null) {
                 error("core not started")

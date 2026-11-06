@@ -155,6 +155,12 @@ class MainActivity : ThemedActivity(),
         }
         return connection.service!!.urlTest()
     }
+    fun urlTestByProfile(profileId: Long, link: String, timeout: Int): Int {
+        if (!DataStore.serviceState.connected || connection.service == null) {
+            error("not started")
+        }
+        return connection.service!!.urlTestByProfile(profileId, link, timeout)
+    }
 
     suspend fun importSubscription(uri: Uri) {
         val group: ProxyGroup

@@ -30,6 +30,7 @@ class UrlTest {
     suspend fun doTestAll(
         profiles: List<ProxyEntity>,
         concurrency: Int,
+        activity: io.nekohasekai.sagernet.ui.MainActivity? = null,
         onResult: suspend (ProxyEntity, Int) -> Unit,
     ) {
         if (profiles.isEmpty()) return
@@ -37,7 +38,7 @@ class UrlTest {
         // 已经连接代理时不能新建测速实例：新实例发出的 socket 会被运行中的 tun 捕获，
         // 测速必然超时（用户看到的就是「连接代理后没法测速」）。
         // 直接复用主实例的 outbound 测，测的就是当前代理本身。
-        if (DataStore.serviceState.connected) {
+        if (DataStore.serviceState.connected && activity != null) {
             val semaphore = Semaphore(concurrency.coerceAtLeast(1))
             coroutineScope {
                 profiles.map { profile ->
@@ -45,7 +46,7 @@ class UrlTest {
                         semaphore.withPermit {
                             val latency = try {
                                 // 主实例里节点的 outbound tag 是 c-<chainId>-<profileId>
-                                Libcore.urlTestNodeMain(profile.id, link, timeout)
+                                activity.urlTestByProfile(profile.id, link, timeout)
                             } catch (e: Exception) {
                                 Logs.w(e)
                                 -1
