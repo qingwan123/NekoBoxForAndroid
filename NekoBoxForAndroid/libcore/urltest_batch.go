@@ -1,6 +1,8 @@
 package libcore
 
 import (
+	"strings"
+	"log"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -121,4 +123,31 @@ func UrlTestTagMain(tag string, link string, timeout int32) int32 {
 		return -1
 	}
 	return UrlTestTag(mainInstance, tag, link, timeout)
+}
+// UrlTestNodeMain 在主实例里按**节点 id** 找 outbound 并测速（-1 = 失败/未启动）。
+//
+// 不直接拼 tag：ConfigBuilder 里节点 outbound 的 tag 是 c-<chainId>-<profileId>，
+// 但链式/复用情况下并不总是 c-<id>-<id>。这里按「前缀 c-<id>- 且后缀 -<id>」匹配，
+// 避免猜错 tag 导致全部节点瞬间超时。
+//
+//export UrlTestNodeMain
+func UrlTestNodeMain(profileId int64, link string, timeout int32) int32 {
+	if mainInstance == nil || mainInstance.Box == nil {
+		return -1
+	}
+	prefix := fmt.Sprintf("c-%d-", profileId)
+	suffix := fmt.Sprintf("-%d", profileId)
+	target := ""
+	for _, outbound := range mainInstance.Box.Outbound().Outbounds() {
+		tag := outbound.Tag()
+		if strings.HasPrefix(tag, prefix) && strings.HasSuffix(tag, suffix) {
+			target = tag
+			break
+		}
+	}
+	if target == "" {
+		log.Println("UrlTestNodeMain: no outbound for profile", profileId)
+		return -1
+	}
+	return UrlTestTag(mainInstance, target, link, timeout)
 }

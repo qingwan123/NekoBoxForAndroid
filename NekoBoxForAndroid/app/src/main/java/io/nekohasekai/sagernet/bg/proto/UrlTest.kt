@@ -45,7 +45,7 @@ class UrlTest {
                         semaphore.withPermit {
                             val latency = try {
                                 // 主实例里节点的 outbound tag 是 c-<chainId>-<profileId>
-                                Libcore.urlTestTagMain("c-${profile.id}-${profile.id}", link, timeout)
+                                Libcore.urlTestNodeMain(profile.id, link, timeout)
                             } catch (e: Exception) {
                                 Logs.w(e)
                                 -1
