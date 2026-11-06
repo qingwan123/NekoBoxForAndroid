@@ -164,6 +164,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         val tunImplementation = findPreference<SimpleMenuPreference>(Key.TUN_IMPLEMENTATION)!!
+        // 内核升到 sing-box 1.15 后启用 sing-tun 自研 TCP/IP 栈，tun 的 stack 字段已废弃
+        // （1.17 移除），ConfigBuilder 不再写它 —— 这个选项选什么都不影响实际行为，隐藏以免误导。
+        tunImplementation.isVisible = false
         val resolveDestination = findPreference<SwitchPreference>(Key.RESOLVE_DESTINATION)!!
         val acquireWakeLock = findPreference<SwitchPreference>(Key.ACQUIRE_WAKE_LOCK)!!
         val enableClashAPI = findPreference<SwitchPreference>(Key.ENABLE_CLASH_API)!!
