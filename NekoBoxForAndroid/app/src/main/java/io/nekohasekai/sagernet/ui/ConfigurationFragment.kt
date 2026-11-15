@@ -102,6 +102,8 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.TimeoutException
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
@@ -852,21 +854,32 @@ class ConfigurationFragment @JvmOverloads constructor(
             val profiles = ConcurrentLinkedQueue(profilesList)
             repeat(DataStore.connectionTestConcurrent) {
                 testJobs.add(launch(Dispatchers.IO) {
-                    val urlTest = UrlTest() // note: this is NOT in bg process
+                    val urlTest = UrlTest()
                     while (isActive) {
                         val profile = profiles.poll() ?: break
                         profile.status = 0
 
                         try {
-                            val result = urlTest.doTest(profile)
+                            // 兜底超时：TestInstance 里的内核拨号可能卡住不走异常，
+                            // 没有这层保护测速弹窗会一直挂着
+                            val result = withTimeoutOrNull(
+                                UrlTest.TEST_TIMEOUT_MS * 2 + 2500L
+                            ) {
+                                urlTest.doTest(profile)
+                            } ?: throw TimeoutException("url test timeout")
                             profile.status = 1
                             profile.ping = result
+                            profile.error = null
                         } catch (e: PluginManager.PluginNotFoundException) {
                             profile.status = 2
                             profile.error = e.readableMessage
                         } catch (e: Exception) {
                             profile.status = 3
                             profile.error = e.readableMessage
+                            Logs.w(
+                                "URLTest ${profile.displayName()} failed: " +
+                                        "${e.readableMessage}"
+                            )
                         }
 
                         test.update(profile)

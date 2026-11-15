@@ -318,14 +318,12 @@ class MainActivity : ThemedActivity(),
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
         if (fragment is ConfigurationFragment) {
+            // allowShow 的 setter 会按「已连接 + 未手势收起」自己决定显示/隐藏
             binding.stats.allowShow = true
-            // 底栏默认是收起的，切回节点页时要主动放出来（已连接的情况下）
-            if (DataStore.serviceState.connected) binding.stats.performShow()
             binding.fab.show()
         } else {
             // 非节点页都没有节点列表，速度栏在那里没有意义
             binding.stats.allowShow = false
-            binding.stats.performHide()
             binding.fab.hide()
         }
         supportFragmentManager.beginTransaction()

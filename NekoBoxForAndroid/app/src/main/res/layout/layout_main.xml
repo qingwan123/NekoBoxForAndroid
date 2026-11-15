@@ -30,123 +30,44 @@
             app:layout_scrollFlags="enterAlways|scroll">
 
             <LinearLayout
-                android:id="@+id/stats_content_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="?android:attr/selectableItemBackground"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="8dp">
+                android:orientation="vertical"
+                android:padding="16dp">
 
-                <!-- 左肩：tx / rx 纵向排列，各自独享左侧整列（大字体也不会被 FAB 挤断） -->
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/tx"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical|start"
-                    android:orientation="vertical">
+                    android:layout_columnWeight="1"
+                    android:layout_gravity="fill_horizontal"
+                    android:ellipsize="marquee"
+                    android:singleLine="true"
+                    android:textColor="?whiteOrTextPrimary"
+                    android:textSize="14sp" />
 
-                    <TextView
-                        android:id="@+id/tx"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:textColor="?whiteOrTextPrimary"
-                        android:textSize="12sp"
-                        app:autoSizeMaxTextSize="13sp"
-                        app:autoSizeMinTextSize="9sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform"
-                        tools:text="▲  0 B/s" />
-
-                    <TextView
-                        android:id="@+id/rx"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:textColor="?whiteOrTextPrimary"
-                        android:textSize="12sp"
-                        app:autoSizeMaxTextSize="13sp"
-                        app:autoSizeMinTextSize="9sp"
-                        app:autoSizeStepGranularity="0.5sp"
-                        app:autoSizeTextType="uniform"
-                        tools:text="▼  0 B/s" />
-
-                </LinearLayout>
-
-                <!-- 中央：给 FAB 的凹槽留出物理空位，文字永远不会跑到按钮底下 -->
-                <Space
-                    android:layout_width="56dp"
-                    android:layout_height="1dp" />
-
-                <!-- 右肩：握手延迟标题 + 数值 + 重测按钮 -->
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/rx"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical|end"
-                    android:orientation="horizontal">
+                    android:layout_columnWeight="1"
+                    android:layout_gravity="fill_horizontal"
+                    android:ellipsize="marquee"
+                    android:singleLine="true"
+                    android:textColor="?whiteOrTextPrimary"
+                    android:textSize="14sp" />
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="end|center_vertical"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/status_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:gravity="end"
-                            android:maxLines="1"
-                            android:textColor="?whiteOrTextPrimary"
-                            android:textSize="10sp"
-                            android:visibility="gone"
-                            app:autoSizeMaxTextSize="11sp"
-                            app:autoSizeMinTextSize="8sp"
-                            app:autoSizeStepGranularity="0.5sp"
-                            app:autoSizeTextType="uniform"
-                            tools:text="HTTPS 握手延迟"
-                            tools:visibility="visible" />
-
-                        <TextView
-                            android:id="@+id/status"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:gravity="end"
-                            android:maxLines="1"
-                            android:textColor="?whiteOrTextPrimary"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            app:autoSizeMaxTextSize="14sp"
-                            app:autoSizeMinTextSize="9sp"
-                            app:autoSizeStepGranularity="0.5sp"
-                            app:autoSizeTextType="uniform"
-                            tools:text="128ms" />
-
-                    </LinearLayout>
-
-                    <ImageView
-                        android:id="@+id/btn_retest"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:layout_marginStart="4dp"
-                        android:background="?android:attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="@string/connection_test"
-                        android:padding="5dp"
-                        android:src="@drawable/ic_baseline_refresh_24"
-                        android:visibility="gone"
-                        app:tint="?whiteOrTextPrimary"
-                        tools:visibility="visible" />
-
-                </LinearLayout>
+                <TextView
+                    android:id="@+id/status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="fill_horizontal"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="?whiteOrTextPrimary"
+                    android:textSize="16sp"
+                    tools:text="@string/connection_test_available" />
 
             </LinearLayout>
 

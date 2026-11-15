@@ -92,8 +92,10 @@ func sendFdToProtect(fd int, path string) error {
 	}
 	defer unix.Close(socketFd)
 
+	// 2s：protect 的 ack 要经过 :bg 进程的 VpnService.protect 往返，100ms 在跑流量时
+	// 经常超时（超时=fd 未 protect=测速 socket 进 tun=连接代理后全部测速超时）。
 	var timeout unix.Timeval
-	timeout.Usec = 100 * 1000
+	timeout.Sec = 2
 
 	_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &timeout)
 	_ = unix.SetsockoptTimeval(socketFd, unix.SOL_SOCKET, unix.SO_SNDTIMEO, &timeout)

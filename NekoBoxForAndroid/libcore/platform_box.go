@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/matsuridayo/libneko/neko_log"
 	"github.com/sagernet/sing-box/adapter"
@@ -52,10 +53,27 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformAutoDetectInterfaceControl() bo
 }
 
 func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) error {
-	// call protect_path
+	// UI 进程里没有 VpnService，只能把 fd 交给 :bg 进程里的 protect 服务去 protect。
+	// 这里必须重试 + 等足够长：bg 进程正在跑流量时，100ms 的 ack 超时会让 fd 悄悄
+	// 变成「未 protect」，测速实例的 socket 就落进自己的 tun —— 表现为「连着代理时
+	// 所有节点测速超时、关掉代理就正常」。
 	if !isBgProcess {
-		_ = sendFdToProtect(fd, "protect_path")
-		return nil
+		var lastErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			lastErr = sendFdToProtect(fd, "protect_path")
+			if lastErr == nil {
+				return nil
+			}
+			// protect 服务不存在 / 没在监听 = VPN 没跑，此时没有 tun，不需要 protect
+			if errors.Is(lastErr, syscall.ENOENT) || errors.Is(lastErr, syscall.ECONNREFUSED) {
+				return nil
+			}
+			if attempt < 2 {
+				time.Sleep(25 * time.Millisecond)
+			}
+		}
+		log.Println("protect via protect_path failed:", lastErr)
+		return E.Cause(lastErr, "protect fd via protect_path")
 	}
 	// bg process call VPNService
 	return intfBox.AutoDetectInterfaceControl(int32(fd))
