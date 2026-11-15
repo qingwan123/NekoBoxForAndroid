@@ -944,6 +944,18 @@ public class SingBoxOptions {
 
         public Boolean padding;
 
+        public BrutalOptions brutal;
+
+    }
+
+    public static class BrutalOptions extends SingBoxOption {
+
+        public Boolean enabled;
+
+        public Integer up_mbps;
+
+        public Integer down_mbps;
+
     }
 
     public static class OnDemandOptions extends SingBoxOption {
@@ -1985,6 +1997,8 @@ public class SingBoxOptions {
         public List<String> config;
 
         public String config_path;
+
+        public String query_server_name;
 
     }
 

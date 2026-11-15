@@ -59,12 +59,25 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     public String echConfig;
 
+    /** sing-box tls.ech.query_server_name：ECH 的 HTTPS 记录查询域名（留空用默认） */
+    public String echQueryServerName;
+
     // --------------------------------------- Mux
 
     public Boolean enableMux;
     public Boolean muxPadding;
     public Integer muxType;
     public Integer muxConcurrency;
+
+    /* sing-box multiplex 的另一种维度：
+       mode=0 时用 muxConcurrency(max_streams)；mode=1 时用 max_connections + min_streams */
+    public Integer muxMode;
+    public Integer muxMaxConnections;
+    public Integer muxMinStreams;
+    /** brutal 拥塞控制（需要同时填上/下行带宽，单位 Mbps） */
+    public Boolean muxBrutal;
+    public Integer muxBrutalUpMbps;
+    public Integer muxBrutalDownMbps;
 
 
     // --------------------------------------- //
@@ -108,16 +121,23 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
         if (enableECH == null) enableECH = false;
         if (JavaUtil.isNullOrBlank(echConfig)) echConfig = "";
+        if (JavaUtil.isNullOrBlank(echQueryServerName)) echQueryServerName = "";
 
         if (enableMux == null) enableMux = false;
         if (muxPadding == null) muxPadding = false;
         if (muxType == null) muxType = 0;
         if (muxConcurrency == null) muxConcurrency = 1;
+        if (muxMode == null) muxMode = 0;
+        if (muxMaxConnections == null) muxMaxConnections = 4;
+        if (muxMinStreams == null) muxMinStreams = 0;
+        if (muxBrutal == null) muxBrutal = false;
+        if (muxBrutalUpMbps == null) muxBrutalUpMbps = 0;
+        if (muxBrutalDownMbps == null) muxBrutalDownMbps = 0;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(5);
+        output.writeInt(6);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -172,6 +192,15 @@ public abstract class StandardV2RayBean extends AbstractBean {
         output.writeInt(muxConcurrency);
 
         output.writeString(vlessEncryption);
+
+        // v6: ECH 查询域名 + mux 的 connections/brutal 维度
+        output.writeString(echQueryServerName);
+        output.writeInt(muxMode);
+        output.writeInt(muxMaxConnections);
+        output.writeInt(muxMinStreams);
+        output.writeBoolean(muxBrutal);
+        output.writeInt(muxBrutalUpMbps);
+        output.writeInt(muxBrutalDownMbps);
     }
 
     @Override
@@ -266,6 +295,16 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
         if (version >= 5) {
             vlessEncryption = input.readString();
+        }
+
+        if (version >= 6) {
+            echQueryServerName = input.readString();
+            muxMode = input.readInt();
+            muxMaxConnections = input.readInt();
+            muxMinStreams = input.readInt();
+            muxBrutal = input.readBoolean();
+            muxBrutalUpMbps = input.readInt();
+            muxBrutalDownMbps = input.readInt();
         }
     }
 

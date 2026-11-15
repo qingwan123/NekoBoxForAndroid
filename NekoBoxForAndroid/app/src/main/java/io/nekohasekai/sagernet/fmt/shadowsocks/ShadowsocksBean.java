@@ -19,6 +19,19 @@ public class ShadowsocksBean extends AbstractBean {
 
     public Boolean sUoT;
 
+    // --------------------------------------- Mux（sing-box multiplex，服务端需支持）
+
+    public Boolean enableMux;
+    public Boolean muxPadding;
+    public Integer muxType;     // 0:h2mux 1:smux 2:yamux（SS 用 smux/yamux）
+    public Integer muxConcurrency;
+    public Integer muxMode;     // 0: max_streams 1: connections
+    public Integer muxMaxConnections;
+    public Integer muxMinStreams;
+    public Boolean muxBrutal;
+    public Integer muxBrutalUpMbps;
+    public Integer muxBrutalDownMbps;
+
     @Override
     public void initializeDefaultValues() {
         super.initializeDefaultValues();
@@ -28,16 +41,38 @@ public class ShadowsocksBean extends AbstractBean {
         if (password == null) password = "";
         if (plugin == null) plugin = "";
         if (sUoT == null) sUoT = false;
+
+        if (enableMux == null) enableMux = false;
+        if (muxPadding == null) muxPadding = false;
+        if (muxType == null) muxType = 1;
+        if (muxConcurrency == null) muxConcurrency = 1;
+        if (muxMode == null) muxMode = 0;
+        if (muxMaxConnections == null) muxMaxConnections = 4;
+        if (muxMinStreams == null) muxMinStreams = 0;
+        if (muxBrutal == null) muxBrutal = false;
+        if (muxBrutalUpMbps == null) muxBrutalUpMbps = 0;
+        if (muxBrutalDownMbps == null) muxBrutalDownMbps = 0;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(2);
+        output.writeInt(3);
         super.serialize(output);
         output.writeString(method);
         output.writeString(password);
         output.writeString(plugin);
         output.writeBoolean(sUoT);
+
+        output.writeBoolean(enableMux);
+        output.writeBoolean(muxPadding);
+        output.writeInt(muxType);
+        output.writeInt(muxConcurrency);
+        output.writeInt(muxMode);
+        output.writeInt(muxMaxConnections);
+        output.writeInt(muxMinStreams);
+        output.writeBoolean(muxBrutal);
+        output.writeInt(muxBrutalUpMbps);
+        output.writeInt(muxBrutalDownMbps);
     }
 
     @Override
@@ -48,6 +83,19 @@ public class ShadowsocksBean extends AbstractBean {
         password = input.readString();
         plugin = input.readString();
         sUoT = input.readBoolean();
+
+        if (version >= 3) {
+            enableMux = input.readBoolean();
+            muxPadding = input.readBoolean();
+            muxType = input.readInt();
+            muxConcurrency = input.readInt();
+            muxMode = input.readInt();
+            muxMaxConnections = input.readInt();
+            muxMinStreams = input.readInt();
+            muxBrutal = input.readBoolean();
+            muxBrutalUpMbps = input.readInt();
+            muxBrutalDownMbps = input.readInt();
+        }
     }
 
     @NotNull

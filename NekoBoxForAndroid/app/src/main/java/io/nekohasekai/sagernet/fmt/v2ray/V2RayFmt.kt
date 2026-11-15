@@ -646,6 +646,9 @@ fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
                 if (bean.echConfig.isNotBlank()) {
                     config = bean.echConfig.lines()
                 }
+                if (bean.echQueryServerName.isNotBlank()) {
+                    query_server_name = bean.echQueryServerName
+                }
             }
         }
     }

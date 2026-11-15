@@ -185,6 +185,14 @@
     <string name="cag_misc">杂项</string>
     <string name="enable_mux">启用多路复用</string>
     <string name="mux_concurrency">复用最大并发</string>
+    <string name="mux_mode">复用模式</string>
+    <string name="mux_max_connections">最大连接数（connections 模式）</string>
+    <string name="mux_min_streams">最小流数（connections 模式）</string>
+    <string name="mux_brutal">Brutal 拥塞控制</string>
+    <string name="mux_brutal_sum">需同时填写上下行带宽；能不能提速取决于你的真实线路。</string>
+    <string name="mux_brutal_up">Brutal 上行带宽 (Mbps)</string>
+    <string name="mux_brutal_down">Brutal 下行带宽 (Mbps)</string>
+    <string name="ech_query_server_name">ECH 查询域名</string>
     <string name="ws_host">WebSocket 主机</string>
     <string name="ws_path">WebSocket 路径</string>
     <string name="http_host">HTTP 主机</string>

@@ -47,11 +47,18 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
     private val enableECH = pbm.add(PreferenceBinding(Type.Bool, "enableECH"))
     private val echConfig = pbm.add(PreferenceBinding(Type.Text, "echConfig"))
+    private val echQueryServerName = pbm.add(PreferenceBinding(Type.Text, "echQueryServerName"))
 
     private val enableMux = pbm.add(PreferenceBinding(Type.Bool, "enableMux"))
     private val muxPadding = pbm.add(PreferenceBinding(Type.Bool, "muxPadding"))
     private val muxType = pbm.add(PreferenceBinding(Type.TextToInt, "muxType"))
     private val muxConcurrency = pbm.add(PreferenceBinding(Type.TextToInt, "muxConcurrency"))
+    private val muxMode = pbm.add(PreferenceBinding(Type.TextToInt, "muxMode"))
+    private val muxMaxConnections = pbm.add(PreferenceBinding(Type.TextToInt, "muxMaxConnections"))
+    private val muxMinStreams = pbm.add(PreferenceBinding(Type.TextToInt, "muxMinStreams"))
+    private val muxBrutal = pbm.add(PreferenceBinding(Type.Bool, "muxBrutal"))
+    private val muxBrutalUpMbps = pbm.add(PreferenceBinding(Type.TextToInt, "muxBrutalUpMbps"))
+    private val muxBrutalDownMbps = pbm.add(PreferenceBinding(Type.TextToInt, "muxBrutalDownMbps"))
 
     override fun StandardV2RayBean.init() {
         if (this is TrojanBean) {

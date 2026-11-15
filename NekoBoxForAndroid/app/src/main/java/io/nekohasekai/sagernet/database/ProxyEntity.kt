@@ -31,6 +31,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.*
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.profile.*
+import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
@@ -325,29 +326,76 @@ data class ProxyEntity(
 
     fun singMux(): MultiplexOptions? {
         return when (type) {
-            TYPE_VMESS -> MultiplexOptions().apply {
-                enabled = vmessBean!!.enableMux
-                padding = vmessBean!!.muxPadding
-                max_streams = vmessBean!!.muxConcurrency
-                protocol = when (vmessBean!!.muxType) {
-                    1 -> "smux"
-                    2 -> "yamux"
-                    else -> "h2mux"
-                }
+            TYPE_VMESS -> vmessBean?.let {
+                buildMuxOptions(
+                    it.enableMux, it.muxPadding, it.muxType, it.muxConcurrency,
+                    it.muxMode, it.muxMaxConnections, it.muxMinStreams,
+                    it.muxBrutal, it.muxBrutalUpMbps, it.muxBrutalDownMbps
+                )
             }
 
-            TYPE_TROJAN -> MultiplexOptions().apply {
-                enabled = trojanBean!!.enableMux
-                padding = trojanBean!!.muxPadding
-                max_streams = trojanBean!!.muxConcurrency
-                protocol = when (trojanBean!!.muxType) {
-                    1 -> "smux"
-                    2 -> "yamux"
-                    else -> "h2mux"
-                }
+            TYPE_TROJAN -> trojanBean?.let {
+                buildMuxOptions(
+                    it.enableMux, it.muxPadding, it.muxType, it.muxConcurrency,
+                    it.muxMode, it.muxMaxConnections, it.muxMinStreams,
+                    it.muxBrutal, it.muxBrutalUpMbps, it.muxBrutalDownMbps
+                )
+            }
+
+            // SS 的多路复用一直没接进来，服务端支持时能省握手
+            TYPE_SS -> ssBean?.let {
+                buildMuxOptions(
+                    it.enableMux, it.muxPadding, it.muxType, it.muxConcurrency,
+                    it.muxMode, it.muxMaxConnections, it.muxMinStreams,
+                    it.muxBrutal, it.muxBrutalUpMbps, it.muxBrutalDownMbps
+                )
             }
 
             else -> null
+        }
+    }
+
+    /**
+     * sing-box 的 multiplex 有两个互斥维度：
+     * mode=0 用 max_streams（老参数 muxConcurrency）；mode=1 用 max_connections + min_streams。
+     * brutal 是拥塞控制，必须同时给出上/下行带宽才有意义，缺一个就不写（内核会报错）。
+     */
+    private fun buildMuxOptions(
+        enabled: Boolean?,
+        padding: Boolean?,
+        muxType: Int?,
+        maxStreams: Int?,
+        mode: Int?,
+        maxConnections: Int?,
+        minStreams: Int?,
+        brutal: Boolean?,
+        brutalUp: Int?,
+        brutalDown: Int?,
+    ): MultiplexOptions? {
+        if (enabled != true) return null
+        return MultiplexOptions().apply {
+            this.enabled = true
+            this.padding = padding == true
+            this.protocol = when (muxType) {
+                1 -> "smux"
+                2 -> "yamux"
+                else -> "h2mux"
+            }
+            if ((mode ?: 0) == 1) {
+                this.max_connections = (maxConnections ?: 4).coerceAtLeast(1)
+                this.min_streams = (minStreams ?: 0).coerceAtLeast(0)
+            } else {
+                this.max_streams = (maxStreams ?: 1).coerceAtLeast(1)
+            }
+            val up = brutalUp ?: 0
+            val down = brutalDown ?: 0
+            if (brutal == true && up > 0 && down > 0) {
+                this.brutal = SingBoxOptions.BrutalOptions().apply {
+                    this.enabled = true
+                    this.up_mbps = up
+                    this.down_mbps = down
+                }
+            }
         }
     }
 

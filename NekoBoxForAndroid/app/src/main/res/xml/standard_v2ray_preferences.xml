@@ -174,6 +174,43 @@
             app:icon="@drawable/baseline_developer_board_24"
             app:key="muxPadding"
             app:title="@string/padding" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:defaultValue="0"
+            app:entries="@array/mux_mode"
+            app:entryValues="@array/int_array_2"
+            app:icon="@drawable/ic_baseline_tune_24"
+            app:key="muxMode"
+            app:title="@string/mux_mode"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:defaultValue="4"
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="muxMaxConnections"
+            app:title="@string/mux_max_connections"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:defaultValue="0"
+            app:icon="@drawable/ic_baseline_low_priority_24"
+            app:key="muxMinStreams"
+            app:title="@string/mux_min_streams"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreference
+            app:icon="@drawable/ic_baseline_speed_24"
+            app:key="muxBrutal"
+            app:summary="@string/mux_brutal_sum"
+            app:title="@string/mux_brutal" />
+        <EditTextPreference
+            app:defaultValue="0"
+            app:icon="@drawable/ic_baseline_speed_24"
+            app:key="muxBrutalUpMbps"
+            app:title="@string/mux_brutal_up"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:defaultValue="0"
+            app:icon="@drawable/ic_baseline_speed_24"
+            app:key="muxBrutalDownMbps"
+            app:title="@string/mux_brutal_down"
+            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -187,6 +224,11 @@
             app:icon="@drawable/ic_baseline_nfc_24"
             app:key="echConfig"
             app:title="@string/ech_config"
+            app:useSimpleSummaryProvider="true" />
+        <EditTextPreference
+            app:icon="@drawable/ic_action_dns"
+            app:key="echQueryServerName"
+            app:title="@string/ech_query_server_name"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
