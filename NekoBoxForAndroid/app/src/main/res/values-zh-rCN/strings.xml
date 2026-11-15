@@ -59,6 +59,8 @@
         \n直连： %3$s↑ %4$s↓</string>
     <string name="speed">%s/s</string>
     <string name="connection_test_testing">测试中…</string>
+    <string name="connection_test_latency_https">HTTPS 握手延迟</string>
+    <string name="connection_test_latency_http">HTTP 握手延迟</string>
     <string name="connection_test_available">连接成功: HTTPS 握手耗时 %dms</string>
     <string name="connection_test_error">失败: %s</string>
     <string name="connection_test_fail">网络不可用</string>

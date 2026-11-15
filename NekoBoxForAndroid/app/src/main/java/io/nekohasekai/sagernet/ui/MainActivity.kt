@@ -427,11 +427,17 @@ class MainActivity : ThemedActivity(),
             ProfileManager.postUpdate(old, true)
             ProfileManager.postUpdate(id, true)
         }
+        // 换了节点，底栏的握手延迟必须跟着重测（静默，不打断用户）
+        binding.stats.testConnection(silent = true)
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
+            // 测试链接换了，底栏的握手延迟要按新链接重测（否则标题还写着旧协议）
+            Key.CONNECTION_TEST_URL -> if (DataStore.serviceState.connected) {
+                binding.stats.testConnection(silent = true)
+            }
             // 这三个键只有「分应用代理」页面会改。在该页面之外收到通知，一定是
             // 程序同步（导入备份后重建、页面初始化写回等），不是用户操作，不提示。
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
@@ -447,9 +453,20 @@ class MainActivity : ThemedActivity(),
         }
     }
 
+    /** 节点列表滚动 / 手指位移驱动底栏收/起（>0 收起，<0 弹出） */
+    fun driveBottomBar(scrollDy: Int) {
+        binding.stats.onListScrolled(scrollDy)
+    }
+
+    /** 换分组、重建列表后调用：列表可能不再可滚，别把底栏永久留在收起状态 */
+    fun resetBottomBarScroll() {
+        binding.stats.resetScrollHidden()
+    }
+
     override fun onStart() {
         connection.updateConnectionId(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
         super.onStart()
+        binding.stats.refreshDisplay()
     }
 
     override fun onStop() {

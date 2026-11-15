@@ -13,7 +13,9 @@ import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -1170,6 +1172,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             GroupManager.addListener(adapter!!)
             configurationListView.adapter = adapter
             configurationListView.setItemViewCacheSize(20)
+            setupBottomBarScrollDriver()
 
             if (!select) {
 
@@ -1226,6 +1229,39 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             if (!::undoManager.isInitialized) return
             undoManager.flush()
+        }
+
+        /**
+         * 底栏收/起的手势驱动：滚动量足够时按滚动方向收/起；列表不可滚（内容不足一屏）
+         * 时改用手指位移，否则短分组里根本收不起来也弹不回去。
+         */
+        private fun setupBottomBarScrollDriver() {
+            val mainActivity = activity as? MainActivity ?: return
+            configurationListView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    if (dy != 0) mainActivity.driveBottomBar(dy)
+                }
+            })
+
+            val touchSlop = ViewConfiguration.get(requireContext()).scaledTouchSlop
+            var lastRawY = 0f
+            configurationListView.setOnTouchListener { recyclerView, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> lastRawY = event.rawY
+                    MotionEvent.ACTION_MOVE -> {
+                        val cannotScroll = !recyclerView.canScrollVertically(-1) &&
+                                !recyclerView.canScrollVertically(1)
+                        if (cannotScroll) {
+                            val fingerDy = event.rawY - lastRawY
+                            if (kotlin.math.abs(fingerDy) >= touchSlop) {
+                                mainActivity.driveBottomBar(-fingerDy.toInt())
+                                lastRawY = event.rawY
+                            }
+                        }
+                    }
+                }
+                false
+            }
         }
 
         inner class ConfigurationAdapter : RecyclerView.Adapter<ConfigurationHolder>(),
@@ -1465,6 +1501,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                         configurationListView.scrollTo(0, true)
                     }
 
+                    // 等这一帧真正布局完再判断可滚性：内容不足一屏时没有「下滑」手势,
+                    // 若不在这里兜一下，底栏会永久停在收起状态。
+                    configurationListView.post {
+                        val cannotScroll = !configurationListView.canScrollVertically(-1) &&
+                                !configurationListView.canScrollVertically(1)
+                        if (cannotScroll) (activity as? MainActivity)?.resetBottomBarScroll()
+                    }
                 }
             }
 
