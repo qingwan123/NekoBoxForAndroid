@@ -39,7 +39,98 @@ fun StandardV2RayBean.setTLS(boolean: Boolean) {
     security = if (boolean) "tls" else ""
 }
 
-fun parseV2Ray(link: String): StandardV2RayBean {
+/**
+ * Shadowrocket（小火箭）导出的链接：整段 `uuid@host:port` 被 base64 成 authority 部分，
+ * 参数名也是它自己的（`tls=1` / `peer=` / `xtls=2` / `fingerprint=`）。
+ * 标准解析器只认明文 `vless://uuid@host:port?...`，遇到这种会把那串 base64 当成主机名，
+ * 于是 uuid 为空、地址是乱码 —— 表现就是「这条链接导入不了 / 导进去也用不了」。
+ *
+ * 这里把它还原成标准链接（不是内核不支持：VLESS + REALITY + Vision 内核都支持）。
+ */
+private val SHADOWROCKET_AUTHORITY = Regex("^:?([0-9a-fA-F-]{36})@(.+?):(\\d+)$")
+
+fun normalizeShadowrocketLink(link: String): String {
+    val scheme = when {
+        link.startsWith("vless://", true) -> "vless"
+        link.startsWith("vmess://", true) -> "vmess"
+        else -> return link
+    }
+    val rest = link.substringAfter("://")
+    val authority = rest.substringBefore('?')
+    if (authority.isEmpty() || authority.contains('@') || authority.contains('/')) return link
+
+    val decoded = try {
+        authority.decodeBase64UrlSafe()
+    } catch (e: Exception) {
+        return link
+    }
+    return rebuildShadowrocketLink(scheme, decoded, rest.substringAfter('?', "")) ?: link
+}
+
+/** 纯字符串重写（不依赖 android.util.Base64，方便单测直接喂解码后的 authority） */
+internal fun rebuildShadowrocketLink(scheme: String, decoded: String, rawQuery: String): String? {
+    val match = SHADOWROCKET_AUTHORITY.find(decoded) ?: return null
+    val uuid = match.groupValues[1]
+    val host = match.groupValues[2]
+    val port = match.groupValues[3]
+
+    val params = rawQuery.split('&')
+        .filter { it.isNotBlank() }
+        .toMutableList()
+
+    fun take(vararg keys: String): String? {
+        var value: String? = null
+        val iterator = params.iterator()
+        while (iterator.hasNext()) {
+            val param = iterator.next()
+            val key = param.substringBefore('=')
+            if (keys.any { key.equals(it, true) }) {
+                value = param.substringAfter('=', "")
+                iterator.remove()
+            }
+        }
+        return value
+    }
+
+    val normalized = mutableListOf<String>()
+    // 备注在标准格式里是 fragment
+    val remarks = take("remarks", "remark", "name")
+    // tls=1 -> security=tls（否则 parseDuckSoft 会当成 none，REALITY 直接不会启用）
+    take("tls", "security")?.let {
+        when (it.lowercase()) {
+            "1", "true", "tls", "reality" -> normalized.add("security=tls")
+            "0", "false", "none", "" -> Unit
+            else -> normalized.add("security=$it")
+        }
+    }
+    // peer 是 Shadowrocket 的 SNI
+    take("peer", "sni")?.takeIf { it.isNotBlank() }?.let { normalized.add("sni=$it") }
+    // xtls=1/2 -> flow=xtls-rprx-vision（只有 VLESS 有 flow）
+    take("xtls", "flow")?.takeIf { it != "0" && it.isNotBlank() }?.let {
+        if (scheme == "vless") {
+            normalized.add(
+                "flow=" + if (it.startsWith("xtls")) it.removeSuffix("-udp443") else "xtls-rprx-vision"
+            )
+        }
+    }
+    // fingerprint 是 Shadowrocket 的 utls fp
+    take("fingerprint", "fp")?.takeIf { it.isNotBlank() }?.let { normalized.add("fp=$it") }
+    // udp=1 之类的开关标准格式里没有对应字段，丢掉
+    take("udp", "tfo", "mux")
+
+    normalized.addAll(params)
+
+    return buildString {
+        append(scheme).append("://").append(uuid).append('@').append(host).append(':').append(port)
+        if (normalized.isNotEmpty()) append('?').append(normalized.joinToString("&"))
+        if (!remarks.isNullOrBlank()) append('#').append(remarks)
+    }
+}
+
+fun parseV2Ray(linkRaw: String): StandardV2RayBean {
+    // Shadowrocket 的 base64 authority 先还原，其余逻辑照旧
+    val link = normalizeShadowrocketLink(linkRaw)
+
     // Try parse stupid formats first
 
     if (!link.contains("?")) {
