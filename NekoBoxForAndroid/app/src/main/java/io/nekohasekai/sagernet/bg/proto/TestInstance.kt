@@ -47,7 +47,10 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     override suspend fun loadConfig() {
         // don't call destroyAllJsi here
         if (BuildConfig.DEBUG) Logs.d(config.config)
-        box = Libcore.newSingBoxInstance(config.config, LocalResolverImpl)
+        // 测速实例走 newTestSingBoxInstance：不带 PlatformLogWriter，因此不会创建
+        // cache file。否则每个测速实例都会去开同一个 no_backup/cache.db（bbolt 独占锁），
+        // 主实例正在跑时会一直等锁 → 所有节点卡到超时（断开代理就正常）。
+        box = Libcore.newTestSingBoxInstance(config.config, LocalResolverImpl)
     }
 
 }

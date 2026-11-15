@@ -20,6 +20,7 @@ import (
 
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/constant"
+	sblog "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/pause"
@@ -86,7 +87,35 @@ type BoxInstance struct {
 }
 
 func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *BoxInstance, err error) {
+	return newSingBoxInstance(config, localTransport, true)
+}
+
+// NewTestSingBoxInstance 供测速等一次性实例使用：**不注册 PlatformLogWriter**。
+//
+// sing-box 的 box.New 里 `needCacheFile = experimentalOptions.CacheFile != nil && ... ||
+// options.PlatformLogWriter != nil`，所以只要传了 PlatformLogWriter，每个实例都会创建
+// cache file，默认路径是相对 cwd（no_backup）的 cache.db —— 一个 bbolt 库，**独占 flock**，
+// 而且 bbolt 的默认 Timeout=0 是「无限等锁」。
+//
+// 后果（本轮实测定位：「连着代理测速全超时、断开就正常，而且一个一个慢慢来」的根因）：
+// 主实例在 :bg 里持着 cache.db 的锁，测速实例的 box.Start() 在 bbolt.Open 上一直等锁，
+// 于是每个节点都卡到超时；同一进程里多个实例也一样会互相卡（flock 是按 open file
+// description 的）。并发也因此退化成串行。
+//
+// 测速实例根本不需要 cache 和 clash api，置 nil 两样都不创建（日志回落到 stderr，
+// logcat 里仍能看到），代价只是测速实例的日志不进导出文件。
+func NewTestSingBoxInstance(config string, localTransport LocalDNSTransport) (b *BoxInstance, err error) {
+	return newSingBoxInstance(config, localTransport, false)
+}
+
+func newSingBoxInstance(config string, localTransport LocalDNSTransport, platformLog bool) (b *BoxInstance, err error) {
 	defer device.DeferPanicToError("NewSingBoxInstance", func(err_ error) { err = err_ })
+
+	// 只有主实例才挂 PlatformLogWriter：它会连带创建 cache file（见上面的注释）
+	var platformLogWriter sblog.PlatformWriter
+	if platformLog {
+		platformLogWriter = boxPlatformLogWriter
+	}
 
 	// create box context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -109,7 +138,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 	instance, err := box.New(box.Options{
 		Options:           options,
 		Context:           ctx,
-		PlatformLogWriter: boxPlatformLogWriter,
+		PlatformLogWriter: platformLogWriter,
 	})
 	if err != nil {
 		cancel()
