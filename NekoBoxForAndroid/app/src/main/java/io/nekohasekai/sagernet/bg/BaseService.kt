@@ -157,6 +157,32 @@ class BaseService {
             }
         }
 
+        /**
+         * 在 **bg 进程**里测单个节点（给节点列表用）。
+         *
+         * 为什么必须在 bg：UI 进程里 `AutoDetectInterfaceControl` 只能把 fd 通过
+         * `protect_path` 这个 unix socket 交给 bg 去 protect，ack 一超时（或回调里
+         * `VpnService` 恰好为空）fd 就是未 protect 的 —— 连接代理时这些 socket 会落进
+         * 自己的 tun，表现就是「连着代理测速全部超时、断开就正常」。bg 进程里是直接调
+         * `VpnService.protect`，没有跨进程往返，也就没有这一类失败。
+         *
+         * 这里每个节点建一个独立实例（不复用主实例）：普通订阅组的主实例只含当前节点，
+         * 拿它测别的节点会立刻 `no outbound`。
+         */
+        override fun urlTestProfile(profileId: Long, link: String, timeout: Int): Int {
+            val profile = SagerDatabase.proxyDao.getById(profileId)
+                ?: error("no profile $profileId")
+            try {
+                return runBlocking {
+                    TestInstance(profile, link, timeout).doTest()
+                }
+            } catch (e: PluginManager.PluginNotFoundException) {
+                error(e.readableMessage)
+            } catch (e: Exception) {
+                error(Protocols.genFriendlyMsg(e.readableMessage))
+            }
+        }
+
         fun stateChanged(s: State, msg: String?) = launch {
             val profileName = profileName
             broadcast { it.stateChanged(s.ordinal, profileName, msg) }

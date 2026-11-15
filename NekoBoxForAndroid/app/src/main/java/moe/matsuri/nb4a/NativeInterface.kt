@@ -24,7 +24,16 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
     //  libbox interface
 
     override fun autoDetectInterfaceControl(fd: Int) {
-        DataStore.vpnService?.protect(fd)
+        val service = DataStore.vpnService
+        if (service == null) {
+            // 没有 VpnService = 没有 tun，socket 不需要 protect（关机时正常情况）
+            Logs.w("protect: no VpnService for fd $fd")
+            return
+        }
+        if (!service.protect(fd)) {
+            // protect 失败时 fd 仍然走 tun —— 测速 socket 会落进自己的隧道里超时
+            Logs.w("protect: VpnService.protect($fd) returned false")
+        }
     }
 
     override fun openTun(singTunOptionsJson: String, tunPlatformOptionsJson: String): Long {

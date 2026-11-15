@@ -157,6 +157,15 @@ class MainActivity : ThemedActivity(),
         return connection.service!!.urlTest()
     }
 
+    /**
+     * 让 bg 进程测单个节点（阻塞调用，必须放在 IO 线程里）。
+     * 已连接代理时只能走这条路：UI 进程建的测速实例没法 protect socket。
+     */
+    fun urlTestProfile(profileId: Long, link: String, timeout: Int): Int {
+        val service = connection.service ?: error("service not connected")
+        return service.urlTestProfile(profileId, link, timeout)
+    }
+
     suspend fun importSubscription(uri: Uri) {
         val group: ProxyGroup
 

@@ -847,6 +847,10 @@ class ConfigurationFragment @JvmOverloads constructor(
         val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
         val group = DataStore.currentGroup()
+        // 已连接代理时，测速必须交给 bg 进程：UI 进程里新建的实例无法 protect socket，
+        // 连接时它的 socket 会被自己的 tun 捕获 → 所有节点一起超时（断开代理就正常）。
+        val mainActivity = activity as? MainActivity
+        val testInBgProcess = DataStore.serviceState.connected && mainActivity != null
 
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
@@ -865,7 +869,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                             val result = withTimeoutOrNull(
                                 UrlTest.TEST_TIMEOUT_MS * 2 + 2500L
                             ) {
-                                urlTest.doTest(profile)
+                                if (testInBgProcess) {
+                                    mainActivity!!.urlTestProfile(
+                                        profile.id, urlTest.link, UrlTest.TEST_TIMEOUT_MS
+                                    )
+                                } else {
+                                    urlTest.doTest(profile)
+                                }
                             } ?: throw TimeoutException("url test timeout")
                             profile.status = 1
                             profile.ping = result

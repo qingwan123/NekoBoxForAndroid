@@ -177,8 +177,18 @@ class StatsBar @JvmOverloads constructor(
         super.onLayout(changed, left, top, right, bottom)
         // 布局阶段兜底：未连接 / 不在节点页时直接放到屏幕外，避免「装好就显示」和闪一下
         if (SystemClock.uptimeMillis() < animationEndAt) return
-        translationY = if (shouldShow()) 0f else hiddenOffset()
+        val show = shouldShow()
+        translationY = if (show) 0f else hiddenOffset()
+        if (show != lastLoggedShow) {
+            lastLoggedShow = show
+            Logs.w(
+                "statsbar: show=$show allowShow=$allowShow connected=${isConnected()} " +
+                        "scrollHidden=$scrollHidden height=$height translationY=$translationY"
+            )
+        }
     }
+
+    private var lastLoggedShow: Boolean? = null
 
     private fun initViews() {
         if (this::statusText.isInitialized) return
